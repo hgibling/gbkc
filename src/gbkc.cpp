@@ -17,14 +17,43 @@ struct SequenceRecord
     std::string sequence;
 };
 
+char complement(char c)
+{
+    switch(c) {
+        case 'A': return 'T';
+        case 'C': return 'G';
+        case 'G': return 'C';
+        case 'T': return 'A';
+        default: 
+            fprintf(stderr, "Error: unrecognized nucleotide %c\n", c);
+            exit(1);
+    }
+
+}
+
+std::string reverse_complement(const std::string& sequence)
+{
+    size_t l = sequence.size();
+    std::string rc(l, 'N');
+    for (size_t i = 0; i < l; ++i) {
+        rc[i] = complement(sequence[l - i - 1]);
+    }
+    return rc;
+}
+
+std::string canonical_kmer(const std::string& kmer)
+{
+    std::string rc_kmer = reverse_complement(kmer);
+    return kmer < rc_kmer ? kmer : rc_kmer;
+}
 
 std::map<std::string, size_t> count_kmers(const std::string& sequence, int k)
 {
     std::map<std::string, size_t> out_map;
     for (size_t i = 0; i < sequence.size() - k + 1; ++i)
     {
-        std::string kmer = sequence.substr(i, k);
-        out_map[kmer] += 1;
+        std::string canon_kmer = canonical_kmer(sequence.substr(i, k));
+        out_map[canon_kmer] += 1;
     }
     return out_map;
 }   
