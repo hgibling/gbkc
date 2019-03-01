@@ -3,6 +3,7 @@
 #include <string>
 #include <getopt.h>
 #include <vector>
+#include <map>
 #include <zlib.h>
 #include <stdint.h>
 #include "kseq.h"
@@ -15,6 +16,18 @@ struct SequenceRecord
     std::string name;
     std::string sequence;
 };
+
+
+std::map<std::string, size_t> count_kmers(const std::string& sequence, int k)
+{
+    std::map<std::string, size_t> out_map;
+    for (size_t i = 0; i < sequence.size() - k + 1; ++i)
+    {
+        std::string kmer = sequence.substr(i, k);
+        out_map[kmer] += 1;
+    }
+    return out_map;
+}   
 
 std::vector<SequenceRecord> read_sequences_from_file(const std::string& input_filename)
 {
@@ -80,6 +93,17 @@ int main(int argc, char** argv) {
         printf("name: %s seq: %s\n", reads[i].name.c_str(), reads[i].sequence.substr(0, 10).c_str());
 
     }
+
+    // Count kmers //
+
+    int k = 21;
+
+    std::map<std::string, size_t> allele_kmer_map = count_kmers(alleles[0].sequence, k);
+    //std::map<std::string, size_t>::iterator iter = allele_kmer_map.begin();
+    for(auto iter = allele_kmer_map.begin(); iter != allele_kmer_map.end(); ++iter) {
+        printf("kmer: %s count: %zu\n", iter->first.c_str(), iter->second);
+    }
+
 
 
 }
