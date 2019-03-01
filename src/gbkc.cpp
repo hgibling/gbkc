@@ -67,5 +67,19 @@ int main(int argc, char** argv) {
     fprintf(stderr, "input reads: %s\n", input_reads_file.c_str());
     fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
 
-    read_sequences_from_file(input_alleles_file);
+    std::vector<SequenceRecord> alleles = read_sequences_from_file(input_alleles_file);
+
+    for (size_t i = 0; i < alleles.size(); ++i) {
+        printf("name: %s seq: %s\n", alleles[i].name.c_str(), alleles[i].sequence.substr(0, 10).c_str());
+
+    }
+
+    std::vector<SequenceRecord> reads = read_sequences_from_file(input_reads_file);
+
+    for (size_t i = 0; i < reads.size(); ++i) {
+        printf("name: %s seq: %s\n", reads[i].name.c_str(), reads[i].sequence.substr(0, 10).c_str());
+
+    }
+
+
 }
