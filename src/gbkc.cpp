@@ -8,7 +8,12 @@
 #include <stdint.h>
 #include "kseq.h"
 
-// Tell KSEQ what functions to use to open/read files
+
+//
+// Define functions
+//
+
+// Tell KSEQ (from Heng Li) what functions to use to open/read files
 KSEQ_INIT(gzFile, gzread)
 
 struct SequenceRecord
@@ -17,6 +22,7 @@ struct SequenceRecord
     std::string sequence;
 };
 
+// Get complement of a sequence
 char complement(char c)
 {
     switch(c) {
@@ -28,9 +34,9 @@ char complement(char c)
             fprintf(stderr, "Error: unrecognized nucleotide %c\n", c);
             exit(1);
     }
-
 }
 
+// Get reverse complement of a sequence
 std::string reverse_complement(const std::string& sequence)
 {
     size_t l = sequence.size();
@@ -41,13 +47,15 @@ std::string reverse_complement(const std::string& sequence)
     return rc;
 }
 
+// Get the lexicographically lowest k-mer between it and its reverse complement
 std::string canonical_kmer(const std::string& kmer)
 {
     std::string rc_kmer = reverse_complement(kmer);
     return kmer < rc_kmer ? kmer : rc_kmer;
 }
 
-std::map<std::string, size_t> count_kmers(const std::string& sequence, int k)
+// Obtain all (canonical) kmers and their counts from a sequence
+std::map<std::string, size_t> count_kmers(const std::string& sequence, int k) // size_t k ?
 {
     std::map<std::string, size_t> out_map;
     for (size_t i = 0; i < sequence.size() - k + 1; ++i)
@@ -58,6 +66,7 @@ std::map<std::string, size_t> count_kmers(const std::string& sequence, int k)
     return out_map;
 }   
 
+// Read input files
 std::vector<SequenceRecord> read_sequences_from_file(const std::string& input_filename)
 {
     // Open readers
@@ -85,12 +94,17 @@ std::vector<SequenceRecord> read_sequences_from_file(const std::string& input_fi
     return out_sequences;
 }
 
+//
+// Program commands
+//
+
 int main(int argc, char** argv) {
 
     int opt;
 
     std::string input_alleles_file;
     std::string input_reads_file;
+    //std::string input_k;
 
     while ((opt = getopt(argc, argv, "a:r:")) != -1) {
         switch (opt) {
@@ -100,14 +114,20 @@ int main(int argc, char** argv) {
             case 'r':
                 input_reads_file = optarg;
                 break;
+            //case 'k':
+            //    input_k = optarg;
+            //    break;
             default: /* '?' */
                 exit(EXIT_FAILURE);
         }
     }
 
+    // Read files
     // TODO: Handle case where file names are null
     fprintf(stderr, "input reads: %s\n", input_reads_file.c_str());
     fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
+    //fprintf(stderr, "input k value: %s\n", input_k.c_str());
+
 
     std::vector<SequenceRecord> alleles = read_sequences_from_file(input_alleles_file);
 
@@ -123,7 +143,7 @@ int main(int argc, char** argv) {
 
     }
 
-    // Count kmers //
+    // Count k-mers
 
     int k = 21;
 
