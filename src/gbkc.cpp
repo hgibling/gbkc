@@ -101,6 +101,7 @@ std::vector<SequenceRecord> read_sequences_from_file(const std::string& input_fi
 
 int main(int argc, char** argv) {
 
+    // Read command line arguments
     std::string input_alleles_file;
     std::string input_reads_file;
     size_t input_k = 21;
@@ -128,30 +129,43 @@ int main(int argc, char** argv) {
     fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
     fprintf(stderr, "input k value: %zu\n", input_k);
 
-
     std::vector<SequenceRecord> alleles = read_sequences_from_file(input_alleles_file);
-
-    for (size_t i = 0; i < alleles.size(); ++i) {
-        printf("name: %s seq: %s\n", alleles[i].name.c_str(), alleles[i].sequence.substr(0, 10).c_str());
-
-    }
+    // for (size_t i = 0; i < alleles.size(); ++i) {
+    //     printf("name: %s seq: %s\n", alleles[i].name.c_str(), alleles[i].sequence.substr(0, 10).c_str());
+    // }
 
     std::vector<SequenceRecord> reads = read_sequences_from_file(input_reads_file);
+    // for (size_t i = 0; i < reads.size(); ++i) {
+    //     printf("name: %s seq: %s\n", reads[i].name.c_str(), reads[i].sequence.substr(0, 10).c_str());
+    // }
 
-    for (size_t i = 0; i < reads.size(); ++i) {
-        printf("name: %s seq: %s\n", reads[i].name.c_str(), reads[i].sequence.substr(0, 10).c_str());
+    fprintf(stderr, "number of alleles: %zu\n", alleles.size());
+    // for (size_t a = 0; a < alleles.size(); ++a) {
+    //     fprintf(stderr, "allele name: %s\n", alleles[a].name.c_str());
+    // }
 
+
+    //
+    // Count k-mers in alleles
+    //
+    std::map<std::string, std::map<std::string, size_t>> allele_kmer_map; 
+
+    // Iterate over each allele
+    for (size_t a = 0; a < alleles.size(); ++a) {
+        std::map<std::string, size_t> single_allele_kmer_map = count_kmers(alleles[a].sequence, input_k);
+        allele_kmer_map[alleles[a].name.c_str()] = single_allele_kmer_map;
     }
 
-    // Count k-mers
-
-    int k = 21;
-
-    std::map<std::string, size_t> allele_kmer_map = count_kmers(alleles[0].sequence, k);
-    //std::map<std::string, size_t>::iterator iter = allele_kmer_map.begin();
-    for(auto iter = allele_kmer_map.begin(); iter != allele_kmer_map.end(); ++iter) {
-        printf("kmer: %s count: %zu\n", iter->first.c_str(), iter->second);
+    // Print map contents for debugging
+    for (auto iter = allele_kmer_map.begin(); iter != allele_kmer_map.end(); ++iter) {
+        printf("allele: %s\n", iter->first.c_str());
+        std::map<std::string, size_t> &single_allele_kmer_map = iter->second;
+        for (auto iter2 = single_allele_kmer_map.begin(); iter2 != single_allele_kmer_map.end(); ++iter2) {
+            printf("kmer: %s, count: %zu\n", iter2->first.c_str(), iter2->second);
+        }
     }
+
+
 
 
 
