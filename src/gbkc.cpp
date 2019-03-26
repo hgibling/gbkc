@@ -23,6 +23,9 @@ struct SequenceRecord
     std::string sequence;
 };
 
+// Define kmer count profile structure
+typedef std::map<std::string, size_t> kmer_count_map;
+
 // Get complement of a sequence
 char complement(char c)
 {
@@ -148,19 +151,19 @@ int main(int argc, char** argv) {
     //
     // Count k-mers in alleles
     //
-    std::map<std::string, std::map<std::string, size_t>> allele_kmer_map; 
+    std::map<std::string, kmer_count_map> allele_kmer_counts; 
 
     // Iterate over each allele
     for (size_t a = 0; a < alleles.size(); ++a) {
-        std::map<std::string, size_t> single_allele_kmer_map = count_kmers(alleles[a].sequence, input_k);
-        allele_kmer_map[alleles[a].name.c_str()] = single_allele_kmer_map;
+        std::map<std::string, size_t> single_allele_kmer_counts = count_kmers(alleles[a].sequence, input_k);
+        allele_kmer_counts[alleles[a].name.c_str()] = single_allele_kmer_counts;
     }
 
     // Print map contents for debugging
-    for (auto iter = allele_kmer_map.begin(); iter != allele_kmer_map.end(); ++iter) {
+    for (auto iter = allele_kmer_counts.begin(); iter != allele_kmer_counts.end(); ++iter) {
         printf("allele: %s\n", iter->first.c_str());
-        std::map<std::string, size_t> &single_allele_kmer_map = iter->second;
-        for (auto iter2 = single_allele_kmer_map.begin(); iter2 != single_allele_kmer_map.end(); ++iter2) {
+        std::map<std::string, size_t> &single_allele_kmer_counts = iter->second;
+        for (auto iter2 = single_allele_kmer_counts.begin(); iter2 != single_allele_kmer_counts.end(); ++iter2) {
             printf("kmer: %s, count: %zu\n", iter2->first.c_str(), iter2->second);
         }
     }
