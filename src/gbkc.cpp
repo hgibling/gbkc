@@ -7,6 +7,7 @@
 #include <zlib.h>
 #include <stdint.h>
 #include "kseq.h"
+#include <sstream>
 
 
 //
@@ -32,7 +33,7 @@ char complement(char c)
         case 'T': return 'A';
         default: 
             fprintf(stderr, "Error: unrecognized nucleotide %c\n", c);
-            exit(1);
+            exit(EXIT_FAILURE);
     }
 }
 
@@ -55,7 +56,7 @@ std::string canonical_kmer(const std::string& kmer)
 }
 
 // Obtain all (canonical) kmers and their counts from a sequence
-std::map<std::string, size_t> count_kmers(const std::string& sequence, int k) // size_t k ?
+std::map<std::string, size_t> count_kmers(const std::string& sequence, size_t k)
 {
     std::map<std::string, size_t> out_map;
     for (size_t i = 0; i < sequence.size() - k + 1; ++i)
@@ -100,24 +101,23 @@ std::vector<SequenceRecord> read_sequences_from_file(const std::string& input_fi
 
 int main(int argc, char** argv) {
 
-    int opt;
-
     std::string input_alleles_file;
     std::string input_reads_file;
-    //std::string input_k;
+    size_t input_k = 21;
 
-    while ((opt = getopt(argc, argv, "a:r:")) != -1) {
-        switch (opt) {
+    for (char c; (c = getopt_long(argc, argv, "a:r:k:", NULL, NULL)) != -1;) {
+        std::istringstream arg(optarg != NULL ? optarg : "");
+        switch (c) {
             case 'a':
-                input_alleles_file = optarg;
+                arg >> input_alleles_file;
                 break;
             case 'r':
-                input_reads_file = optarg;
+                arg >> input_reads_file;
                 break;
-            //case 'k':
-            //    input_k = optarg;
-            //    break;
-            default: /* '?' */
+            case 'k':
+                arg >> input_k;
+                break;
+            default:
                 exit(EXIT_FAILURE);
         }
     }
@@ -126,7 +126,7 @@ int main(int argc, char** argv) {
     // TODO: Handle case where file names are null
     fprintf(stderr, "input reads: %s\n", input_reads_file.c_str());
     fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
-    //fprintf(stderr, "input k value: %s\n", input_k.c_str());
+    fprintf(stderr, "input k value: %zu\n", input_k);
 
 
     std::vector<SequenceRecord> alleles = read_sequences_from_file(input_alleles_file);
