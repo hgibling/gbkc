@@ -59,9 +59,9 @@ std::string canonical_kmer(const std::string& kmer)
 }
 
 // Obtain all (canonical) kmers and their counts from a sequence
-std::map<std::string, size_t> count_kmers(const std::string& sequence, size_t k)
+kmer_count_map count_kmers(const std::string& sequence, size_t k)
 {
-    std::map<std::string, size_t> out_map;
+    kmer_count_map out_map;
     for (size_t i = 0; i < sequence.size() - k + 1; ++i)
     {
         std::string canon_kmer = canonical_kmer(sequence.substr(i, k));
@@ -152,21 +152,63 @@ int main(int argc, char** argv) {
     // Count k-mers in alleles
     //
     std::map<std::string, kmer_count_map> allele_kmer_counts; 
+    // std::vector<std::string> allele_kmers;
 
     // Iterate over each allele
     for (size_t a = 0; a < alleles.size(); ++a) {
         std::map<std::string, size_t> single_allele_kmer_counts = count_kmers(alleles[a].sequence, input_k);
         allele_kmer_counts[alleles[a].name.c_str()] = single_allele_kmer_counts;
+        // for (auto iter = single_allele_kmer_counts.begin(); iter != single_allele_kmer_counts.end(); ++iter) {
+        //     allele_kmers.push_back(iter->second);
+        // }
+
     }
 
     // Print map contents for debugging
-    for (auto iter = allele_kmer_counts.begin(); iter != allele_kmer_counts.end(); ++iter) {
-        printf("allele: %s\n", iter->first.c_str());
-        std::map<std::string, size_t> &single_allele_kmer_counts = iter->second;
-        for (auto iter2 = single_allele_kmer_counts.begin(); iter2 != single_allele_kmer_counts.end(); ++iter2) {
-            printf("kmer: %s, count: %zu\n", iter2->first.c_str(), iter2->second);
-        }
+    // for (auto iter = allele_kmer_counts.begin(); iter != allele_kmer_counts.end(); ++iter) {
+    //     printf("allele: %s\n", iter->first.c_str());
+    //     std::map<std::string, size_t> &single_allele_kmer_counts = iter->second;
+    //     for (auto iter2 = single_allele_kmer_counts.begin(); iter2 != single_allele_kmer_counts.end(); ++iter2) {
+    //         printf("kmer: %s, count: %zu\n", iter2->first.c_str(), iter2->second);
+    //     }
+    // }
+
+    // Get unique kmers
+    // std::vector<std::string> allele_kmers;
+    
+    // for (auto iter = allele_kmer_counts.begin(); iter != allele_kmer_counts.end(); ++iter) {
+    //         allele_kmers.push_back(iter->first);
+    //     }
+
+    // printf("check %s", allele_kmers);
+
+    // for (size_t k = 0; k < allele_kmers.size(); ++k) {
+    //     printf("kmer: %s\n", allele_kmers[k]);
+    // }
+
+
+
+
+
+    //
+    // Count k-mers in reads
+    //
+    std::map<std::string, kmer_count_map> reads_kmer_counts;
+
+    // Iterate over each read
+    for (size_t r = 0; r < reads.size(); ++r) {
+        std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads[r].sequence, input_k);
+        reads_kmer_counts[reads[r].name.c_str()] = single_read_kmer_counts;
     }
+
+    // Print map contents for debugging
+    // for (auto iter = reads_kmer_counts.begin(); iter != reads_kmer_counts.end(); ++iter) {
+    //     printf("read: %s\n", iter->first.c_str());
+    //     std::map<std::string, size_t> &single_read_kmer_counts = iter->second;
+    //     for (auto iter2 = single_read_kmer_counts.begin(); iter2 != single_read_kmer_counts.end(); ++iter2) {
+    //         printf("kmer: %s, count: %zu\n", iter2->first.c_str(), iter2->second);
+    //     }
+    // }
 
 
 
