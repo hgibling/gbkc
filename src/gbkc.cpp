@@ -188,6 +188,8 @@ int main(int argc, char** argv) {
     fprintf(stderr, "input reads: %s\n", input_reads_file.c_str());
     fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
     fprintf(stderr, "input k value: %zu\n", input_k);
+    fprintf(stderr, "input lambda: %f\n", lambda);
+    fprintf(stderr, "input lambda error: %f\n", lambda_error);
 
     // Get allele sequences
     std::vector<SequenceRecord> alleles = read_sequences_from_file(input_alleles_file);
@@ -207,10 +209,10 @@ int main(int argc, char** argv) {
     // Count k-mers in alleles
     //
 
-    // All kmers in each allele
+    // All k-mers in each allele
     std::map<std::string, kmer_count_map> allele_kmer_counts; 
 
-    // Union of kmers fromm all alleles
+    // Union of k-mers from all alleles
     std::unordered_set<std::string> allele_kmers;
 
     // Iterate over each allele
@@ -220,7 +222,6 @@ int main(int argc, char** argv) {
         for (auto iter = single_allele_kmer_counts.begin(); iter != single_allele_kmer_counts.end(); ++iter) {
             allele_kmers.insert(iter->first);
         }
-
     }
 
 
@@ -234,7 +235,7 @@ int main(int argc, char** argv) {
     // k-mers and counts across all reads
     kmer_count_map all_reads_kmer_counts;
 
-    // Union of k-mers across all reads
+    // Union of k-mers across all reads (do I need this?)
     std::unordered_set<std::string> reads_kmers;
 
     // Iterate over each read
@@ -243,17 +244,22 @@ int main(int argc, char** argv) {
         each_read_kmer_counts[reads[r].name.c_str()] = single_read_kmer_counts;
         for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
             reads_kmers.insert(iter->first);
-            all_reads_kmer_counts[iter->first]  += iter->second;
+            all_reads_kmer_counts[iter->first] += iter->second;
         }
     }   
 
 
-
     // Score kmer count profiles for each allele
+    std::map<std::string, double> all_scores;
+    for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
+        std::string a = *iter;
+        all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
+    }
 
-
-   
-    return 0;
+   // Print output
+    for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
+        printf("allele: %s has score %f\n", iter->first.c_str(), iter->second);
+    }
 
 
 
