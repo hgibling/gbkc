@@ -10,6 +10,7 @@
 #include <sstream>
 #include <iostream>
 #include <unordered_set>
+#include <set>
 #include <math.h>
 
 
@@ -118,7 +119,7 @@ double log_poisson_pmf(double c, double lambda)
     return p;
 }
 
-// Score reads kmer count  against allele kmer count (individual kmers)
+// Score reads kmer count against allele kmer count (individual kmers)
 double score_kmer(size_t read_count, size_t allele_count, double lambda, double lambda_error)
 {
     double score = 0;
@@ -130,7 +131,7 @@ double score_kmer(size_t read_count, size_t allele_count, double lambda, double 
     return score;
 }
 
-// Score read kmer count profliles
+// Score read kmer count proflile against allele kmer count profile
 double score_profile(const kmer_count_map& read_map, const kmer_count_map& allele_map, const std::unordered_set<std::string>& allele_union_kmers, double lambda, double lambda_error)
 {
     double score = 0;
@@ -188,20 +189,18 @@ int main(int argc, char** argv) {
     fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
     fprintf(stderr, "input k value: %zu\n", input_k);
 
+    // Get allele sequences
     std::vector<SequenceRecord> alleles = read_sequences_from_file(input_alleles_file);
-    // for (size_t i = 0; i < alleles.size(); ++i) {
-    //     printf("name: %s seq: %s\n", alleles[i].name.c_str(), alleles[i].sequence.substr(0, 10).c_str());
-    // }
 
+    // Get list of allele names
+    std::set<std::string> allele_names;
+    for (size_t i = 0; i < alleles.size(); ++i) {
+        allele_names.insert(alleles[i].name.c_str());
+    }
+    fprintf(stderr, "number of alleles: %zu\n", allele_names.size());
+
+    // Get read sequences
     std::vector<SequenceRecord> reads = read_sequences_from_file(input_reads_file);
-    // for (size_t i = 0; i < reads.size(); ++i) {
-    //     printf("name: %s seq: %s\n", reads[i].name.c_str(), reads[i].sequence.substr(0, 10).c_str());
-    // }
-
-    fprintf(stderr, "number of alleles: %zu\n", alleles.size());
-    // for (size_t a = 0; a < alleles.size(); ++a) {
-    //     fprintf(stderr, "allele name: %s\n", alleles[a].name.c_str());
-    // }
 
 
     //
@@ -224,20 +223,6 @@ int main(int argc, char** argv) {
 
     }
 
-    // Print map contents for debugging
-    // for (auto iter = allele_kmer_counts.begin(); iter != allele_kmer_counts.end(); ++iter) {
-    //     printf("allele: %s\n", iter->first.c_str());
-    //     std::map<std::string, size_t> &single_allele_kmer_counts = iter->second;
-    //     for (auto iter2 = single_allele_kmer_counts.begin(); iter2 != single_allele_kmer_counts.end(); ++iter2) {
-    //         printf("kmer: %s, count: %zu\n", iter2->first.c_str(), iter2->second);
-    //     }
-    // }
-
-    // for (auto iter = allele_kmers.begin(); iter != allele_kmers.end(); ++iter) {
-    //     std::cout << *iter << '\n';
-    // }
-
-    
 
     //
     // Count k-mers in reads
@@ -260,24 +245,12 @@ int main(int argc, char** argv) {
             reads_kmers.insert(iter->first);
             all_reads_kmer_counts[iter->first]  += iter->second;
         }
-    }
-
-    // Print map contents for debugging
-    // for (auto iter = each_read_kmer_counts.begin(); iter != each_read_kmer_counts.end(); ++iter) {
-    //     printf("read: %s\n", iter->first.c_str());
-    //     std::map<std::string, size_t> &single_read_kmer_counts = iter->second;
-    //     for (auto iter2 = single_read_kmer_counts.begin(); iter2 != single_read_kmer_counts.end(); ++iter2) {
-    //         printf("kmer: %s, count: %zu\n", iter2->first.c_str(), iter2->second);
-    //     }
-    // }
-
-    // for (auto iter = all_reads_kmer_counts.begin(); iter != all_reads_kmer_counts.end(); ++iter) {
-    //     printf("kmer: %s, count: %zu\n", iter->first.c_str(), iter->second);
-    // }    
+    }   
 
 
 
-    // Get reads kmers that exist in union of allele kmers
+    // Score kmer count profiles for each allele
+
 
    
     return 0;
