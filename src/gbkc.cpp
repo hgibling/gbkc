@@ -10,6 +10,8 @@
 #include <sstream>
 #include <iostream>
 #include <unordered_set>
+#include <math.h>
+
 
 //
 // Define functions
@@ -99,6 +101,51 @@ std::vector<SequenceRecord> read_sequences_from_file(const std::string& input_fi
     return out_sequences;
 }
 
+// Log factorial (from Jared Simpson)
+double log_factorial(size_t c)
+{
+    double result = 0;
+    while(c > 0)
+        result += log(c--); //slow
+    return result;
+}
+
+// Poisson distribution probability mass function (from Jared Simpson)
+double log_poisson_pmf(double c, double lambda)
+{
+    double f_c = log_factorial(c);
+    double p = (double)c * log(lambda) - lambda - f_c;
+    return p;
+}
+
+// Score reads kmer count  against allele kmer count (individual kmers)
+double score_kmer(size_t read_count, size_t allele_count, double lambda, double lambda_error)
+{
+    double score = 0;
+    if (allele_count == 0) {
+        score = log_poisson_pmf(read_count, lambda_error);
+    } else {
+        score = log_poisson_pmf(read_count, (lambda * allele_count));
+    }
+    return score;
+}
+
+// Score read kmer count profliles
+double score_profile(const kmer_count_map& read_map, const kmer_count_map& allele_map, const std::unordered_set<std::string>& allele_union_kmers, double lambda, double lambda_error)
+{
+    double score = 0;
+    for (auto iter = allele_union_kmers.begin(); iter != allele_union_kmers.end(); ++iter) {
+        std::string kmer = *iter;
+        auto rc_iter = read_map.find(kmer);
+        size_t kmer_count_in_read = rc_iter != read_map.end() ? rc_iter->second : 0;
+        auto ac_iter = allele_map.find(kmer);
+        size_t kmer_count_in_allele = ac_iter != allele_map.end() ? ac_iter->second : 0;
+        score += score_kmer(kmer_count_in_read, kmer_count_in_allele, lambda, lambda_error); 
+    }
+    return score;
+}
+
+
 //
 // Program commands
 //
@@ -109,8 +156,10 @@ int main(int argc, char** argv) {
     std::string input_alleles_file;
     std::string input_reads_file;
     size_t input_k = 21;
+    double lambda;
+    double lambda_error = 2;
 
-    for (char c; (c = getopt_long(argc, argv, "a:r:k:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:r:k:l:e:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a':
@@ -121,6 +170,12 @@ int main(int argc, char** argv) {
                 break;
             case 'k':
                 arg >> input_k;
+                break;
+            case 'l':
+                arg >> lambda;
+                break;
+            case 'e':
+                arg >> lambda_error;
                 break;
             default:
                 exit(EXIT_FAILURE);
@@ -221,6 +276,11 @@ int main(int argc, char** argv) {
     // }    
 
 
+
+    // Get reads kmers that exist in union of allele kmers
+
+   
+    return 0;
 
 
 
