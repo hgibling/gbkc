@@ -169,8 +169,9 @@ int main(int argc, char** argv) {
     double sequencing_error = 0;
     double coverage = 0;
     double lambda_error = 2;
+    std::string output_name = "results.txt";
 
-    for (char c; (c = getopt_long(argc, argv, "a:r:k:l:e:c:m:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:r:k:l:e:c:m:o:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a':
@@ -193,6 +194,9 @@ int main(int argc, char** argv) {
                 break;
             case 'm':
                 arg >> lambda_error;
+                break;
+            case 'o':
+                arg >> output_name;
                 break;
             default:
                 exit(EXIT_FAILURE);
@@ -278,11 +282,17 @@ int main(int argc, char** argv) {
         all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
     }
 
+
    // Print output
+
+    FILE * output;
+    output = fopen(output_name.c_str(), "w");
+
     for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
-        printf("allele: %s has score %f\n", iter->first.c_str(), iter->second);
+        fprintf(output, "allele: %s has score %f\n", iter->first.c_str(), iter->second);
     }
 
+    fclose(output);
 
 
 }
