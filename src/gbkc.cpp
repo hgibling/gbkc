@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <set>
 #include <math.h>
+#include <cmath>
 
 
 //
@@ -102,6 +103,13 @@ std::vector<SequenceRecord> read_sequences_from_file(const std::string& input_fi
     return out_sequences;
 }
 
+// Calculate lambda
+double calculate_lambda(size_t read_length, size_t k, double coverage, double sequencing_error)
+{
+    double lambda = (read_length - k + 1) * (coverage / read_length) * pow((1 - sequencing_error), k);
+    return lambda;
+}
+
 // Log factorial (from Jared Simpson)
 double log_factorial(size_t c)
 {
@@ -157,10 +165,12 @@ int main(int argc, char** argv) {
     std::string input_alleles_file;
     std::string input_reads_file;
     size_t input_k = 21;
-    double lambda;
+    double read_length = 0;
+    double sequencing_error = 0;
+    double coverage = 0;
     double lambda_error = 2;
 
-    for (char c; (c = getopt_long(argc, argv, "a:r:k:l:e:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:r:k:l:e:c:m:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a':
@@ -173,9 +183,15 @@ int main(int argc, char** argv) {
                 arg >> input_k;
                 break;
             case 'l':
-                arg >> lambda;
+                arg >> read_length;
                 break;
             case 'e':
+                arg >> sequencing_error;
+                break;
+            case 'c':
+                arg >> coverage;
+                break;
+            case 'm':
                 arg >> lambda_error;
                 break;
             default:
@@ -188,7 +204,6 @@ int main(int argc, char** argv) {
     fprintf(stderr, "input reads: %s\n", input_reads_file.c_str());
     fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
     fprintf(stderr, "input k value: %zu\n", input_k);
-    fprintf(stderr, "input lambda: %f\n", lambda);
     fprintf(stderr, "input lambda error: %f\n", lambda_error);
 
     // Get allele sequences
@@ -203,6 +218,13 @@ int main(int argc, char** argv) {
 
     // Get read sequences
     std::vector<SequenceRecord> reads = read_sequences_from_file(input_reads_file);
+
+
+    //
+    // Calculate lambda
+    //
+    double lambda = calculate_lambda(read_length, input_k, coverage, sequencing_error);
+    fprintf(stderr, "lambda calculated as: %f\n", lambda);
 
 
     //
