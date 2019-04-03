@@ -22,13 +22,14 @@
 // Tell KSEQ (from Heng Li) what functions to use to open/read files
 KSEQ_INIT(gzFile, gzread)
 
+// Define sequence record structre
 struct SequenceRecord
 {
     std::string name;
     std::string sequence;
 };
 
-// Define kmer count profile structure
+// Define k-mer count profile structure
 typedef std::map<std::string, size_t> kmer_count_map;
 
 // Get complement of a sequence
@@ -63,12 +64,11 @@ std::string canonical_kmer(const std::string& kmer)
     return kmer < rc_kmer ? kmer : rc_kmer;
 }
 
-// Obtain all (canonical) kmers and their counts from a sequence
+// Obtain all (canonical) k-mers and their counts from a sequence
 kmer_count_map count_kmers(const std::string& sequence, size_t k)
 {
     kmer_count_map out_map;
-    for (size_t i = 0; i < sequence.size() - k + 1; ++i)
-    {
+    for (size_t i = 0; i < sequence.size() - k + 1; ++i) {
         std::string canon_kmer = canonical_kmer(sequence.substr(i, k));
         out_map[canon_kmer] += 1;
     }
@@ -104,7 +104,7 @@ std::vector<SequenceRecord> read_sequences_from_file(const std::string& input_fi
 }
 
 // Calculate lambda
-double calculate_lambda(size_t read_length, size_t k, double coverage, double sequencing_error)
+double calculate_lambda(double read_length, size_t k, double coverage, double sequencing_error)
 {
     double lambda = (read_length - k + 1) * (coverage / read_length) * pow((1 - sequencing_error), k);
     return lambda;
@@ -114,8 +114,9 @@ double calculate_lambda(size_t read_length, size_t k, double coverage, double se
 double log_factorial(size_t c)
 {
     double result = 0;
-    while(c > 0)
+    while(c > 0) {
         result += log(c--); //slow
+    }
     return result;
 }
 
@@ -127,7 +128,7 @@ double log_poisson_pmf(double c, double lambda)
     return p;
 }
 
-// Score reads kmer count against allele kmer count (individual kmers)
+// Score reads k-mer count against allele k-mer count (individual k-mers)
 double score_kmer(size_t read_count, size_t allele_count, double lambda, double lambda_error)
 {
     double score = 0;
@@ -139,7 +140,7 @@ double score_kmer(size_t read_count, size_t allele_count, double lambda, double 
     return score;
 }
 
-// Score read kmer count proflile against allele kmer count profile
+// Score read k-mer count proflile against allele k-mer count profile
 double score_profile(const kmer_count_map& read_map, const kmer_count_map& allele_map, const std::unordered_set<std::string>& allele_union_kmers, double lambda, double lambda_error)
 {
     double score = 0;
@@ -161,7 +162,9 @@ double score_profile(const kmer_count_map& read_map, const kmer_count_map& allel
 
 int main(int argc, char** argv) {
 
+    //
     // Read command line arguments
+    //
     std::string input_alleles_file;
     std::string input_reads_file;
     size_t input_k = 21;
@@ -169,7 +172,7 @@ int main(int argc, char** argv) {
     double sequencing_error = 0;
     double coverage = 0;
     double lambda_error = 2;
-    std::string output_name = "results.txt";
+    std::string output_name = "results.csv";
 
     for (char c; (c = getopt_long(argc, argv, "a:r:k:l:e:c:m:o:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
@@ -274,8 +277,9 @@ int main(int argc, char** argv) {
         }
     }   
 
-
-    // Score kmer count profiles for each allele
+    //
+    // Score k-mer count profiles for each allele
+    //
     std::map<std::string, double> all_scores;
     for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
         std::string a = *iter;
@@ -283,13 +287,14 @@ int main(int argc, char** argv) {
     }
 
 
-   // Print output
-
+    //
+    // Print output
+    //
     FILE * output;
     output = fopen(output_name.c_str(), "w");
 
     for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
-        fprintf(output, "allele: %s has score %f\n", iter->first.c_str(), iter->second);
+        fprintf(output, "%s,%f\n", iter->first.c_str(), iter->second);
     }
 
     fclose(output);
