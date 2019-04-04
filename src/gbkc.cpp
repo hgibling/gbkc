@@ -206,13 +206,12 @@ int main(int argc, char** argv) {
         }
     }
 
+    //
     // Read files
-    // TODO: Handle case where file names are null
-    fprintf(stderr, "input reads: %s\n", input_reads_file.c_str());
-    fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
-    fprintf(stderr, "input k value: %zu\n", input_k);
-    fprintf(stderr, "input lambda error: %f\n", lambda_error);
+    //
 
+    // TODO: Handle case where file names are null
+    
     // Get allele sequences
     std::vector<SequenceRecord> alleles = read_sequences_from_file(input_alleles_file);
 
@@ -231,6 +230,15 @@ int main(int argc, char** argv) {
     // Calculate lambda
     //
     double lambda = calculate_lambda(read_length, input_k, coverage, sequencing_error);
+
+
+    //
+    // Print handy information
+    //
+    fprintf(stderr, "input reads: %s\n", input_reads_file.c_str());
+    fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
+    fprintf(stderr, "input k value: %zu\n", input_k);
+    fprintf(stderr, "input lambda error: %f\n", lambda_error);
     fprintf(stderr, "lambda calculated as: %f\n", lambda);
 
 
@@ -288,7 +296,7 @@ int main(int argc, char** argv) {
 
 
     //
-    // Print output
+    // Save output
     //
     FILE * output;
     output = fopen(output_name.c_str(), "w");
@@ -299,5 +307,5 @@ int main(int argc, char** argv) {
 
     fclose(output);
 
-
+    return 0;
 }
