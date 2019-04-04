@@ -171,7 +171,7 @@ int main(int argc, char** argv) {
     double read_length = 0;
     double sequencing_error = 0;
     double coverage = 0;
-    double lambda_error = 2;
+    double lambda_error = 1;
     std::string output_name = "results.csv";
 
     for (char c; (c = getopt_long(argc, argv, "a:r:k:l:e:c:m:o:", NULL, NULL)) != -1;) {
