@@ -1,18 +1,19 @@
+#include <cmath>
+#include <getopt.h>
+#include <iostream>
+#include <map>
+#include <math.h>
+#include <set>
+#include <sstream>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
-#include <getopt.h>
-#include <vector>
-#include <map>
-#include <zlib.h>
-#include <stdint.h>
-#include "kseq.h"
-#include <sstream>
-#include <iostream>
 #include <unordered_set>
-#include <set>
-#include <math.h>
-#include <cmath>
+#include <vector>
+#include <zlib.h>
+#include "kseq.h"
+
 
 
 //
@@ -23,7 +24,7 @@
 KSEQ_INIT(gzFile, gzread)
 
 // Define sequence record structre
-struct SequenceRecord
+struct sequence_record
 {
     std::string name;
     std::string sequence;
@@ -76,7 +77,7 @@ kmer_count_map count_kmers(const std::string& sequence, size_t k)
 }   
 
 // Read input files
-std::vector<SequenceRecord> read_sequences_from_file(const std::string& input_filename)
+std::vector<sequence_record> read_sequences_from_file(const std::string& input_filename)
 {
     // Open readers
     FILE* read_fp = fopen(input_filename.c_str(), "r");
@@ -91,11 +92,11 @@ std::vector<SequenceRecord> read_sequences_from_file(const std::string& input_fi
         exit(EXIT_FAILURE);
     }
     
-    std::vector<SequenceRecord> out_sequences;
+    std::vector<sequence_record> out_sequences;
     int ret = 0;
     kseq_t* seq = kseq_init(gz_read_fp);
     while((ret = kseq_read(seq)) >= 0) {
-        SequenceRecord sr = { seq->name.s, seq->seq.s };
+        sequence_record sr = { seq->name.s, seq->seq.s };
         out_sequences.push_back(sr);
     }    
     kseq_destroy(seq);   
@@ -213,7 +214,7 @@ int main(int argc, char** argv) {
     // TODO: Handle case where file names are null
     
     // Get allele sequences
-    std::vector<SequenceRecord> alleles = read_sequences_from_file(input_alleles_file);
+    std::vector<sequence_record> alleles = read_sequences_from_file(input_alleles_file);
 
     // Get list of allele names
     std::set<std::string> allele_names;
@@ -223,7 +224,7 @@ int main(int argc, char** argv) {
     fprintf(stderr, "number of alleles: %zu\n", allele_names.size());
 
     // Get read sequences
-    std::vector<SequenceRecord> reads = read_sequences_from_file(input_reads_file);
+    std::vector<sequence_record> reads = read_sequences_from_file(input_reads_file);
 
 
     //
