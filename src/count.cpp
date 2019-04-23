@@ -209,12 +209,12 @@ int countMain(int argc, char** argv) {
     for (size_t i = 0; i < alleles.size(); ++i) {
         allele_names.insert(alleles[i].name.c_str());
     }
-    fprintf(stderr, "number of alleles: %zu\n", allele_names.size());
 
     // Get read sequences
     std::vector<sequence_record> reads = read_sequences_from_file(input_reads_file1);
+    std::vector<sequence_record> reads2;
 	if (!input_reads_file2.empty()) {
-        std::vector<sequence_record> reads2 = read_sequences_from_file(input_reads_file2);
+        reads2 = read_sequences_from_file(input_reads_file2);
     }
 
 
@@ -229,8 +229,10 @@ int countMain(int argc, char** argv) {
     // Print handy information
     //
 
-    fprintf(stderr, "input reads: %s\n", input_reads_file1.c_str());
-    fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
+    fprintf(stderr, "input reads: %s", input_reads_file1.c_str());
+    fprintf(stderr, " %s", input_reads_file2.c_str());
+    fprintf(stderr, "\ninput alleles: %s\n", input_alleles_file.c_str());
+    fprintf(stderr, "number of alleles: %zu\n", allele_names.size());
     fprintf(stderr, "input k value: %zu\n", input_k);
     fprintf(stderr, "input lambda error: %f\n", lambda_error);
     fprintf(stderr, "lambda calculated as: %f\n", lambda);
@@ -277,6 +279,16 @@ int countMain(int argc, char** argv) {
             reads_kmers.insert(iter->first);
             all_reads_kmer_counts[iter->first] += iter->second;
         }
+    }
+    if (!input_reads_file2.empty()) {
+        for (size_t r = 0; r < reads2.size(); ++r) {
+            std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, input_k);
+            each_read_kmer_counts[reads2[r].name.c_str()] = single_read_kmer_counts;
+            for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
+                reads_kmers.insert(iter->first);
+                all_reads_kmer_counts[iter->first] += iter->second;
+            }
+        }  
     }   
 
 
