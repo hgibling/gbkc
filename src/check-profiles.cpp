@@ -147,6 +147,7 @@ int checkprofilesMain(int argc, char** argv) {
         return 0;
     };
 	
+
 	//
     // Read command line arguments
     //
@@ -241,6 +242,7 @@ int checkprofilesMain(int argc, char** argv) {
     	}
 
     }
+
 
     //
     // Finished

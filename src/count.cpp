@@ -113,6 +113,7 @@ int countMain(int argc, char** argv) {
         return 0;
     };
 
+
 	//
     // Read command line arguments
     //
