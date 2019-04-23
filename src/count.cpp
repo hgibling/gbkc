@@ -91,15 +91,15 @@ static const char *COUNT_USAGE_MESSAGE =
 "Score reads based on comparison of k-mer count profiles to those for known alleles.\n\n"
 "Usage: gbkc count [options]\n\n"
 "Commands:\n"
-"			-a 			multi-fasta file of alleles/haplotypes of interest\n"
-"			-1 			multi-fasta/q file of sequencing reads to score (first in pair)\n"
-"			-2 			[optional] multi-fasta/q file of sequencing reads to score (second in pair)\n"
-"			-k 			size of k-mers to use\n"
-"			-l 			read length\n"
-"			-e 			sequencing error rate\n"
-"			-c 			sequencing coverage\n"
-"			-m 			error rate for lambda (default: 1)\n"
-"			-o 			output file name (default: results.csv)\n";
+"		-a       multi-fasta file of alleles/haplotypes of interest\n"
+"		-1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
+"		-2       [optional] multi-fasta/q file of sequencing reads to score (second in pair)\n"
+"		-k       size of k-mers to use\n"
+"		-l       read length\n"
+"		-e       sequencing error rate\n"
+"		-c       sequencing coverage\n"
+"		-m       error rate for lambda (default: 1)\n"
+"		-o       output file name (default: results.csv)\n";
 
 
 //

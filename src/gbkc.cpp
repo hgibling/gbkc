@@ -10,9 +10,9 @@ static const char *GBKC_USAGE_MESSAGE =
 "Program: gbkc\n"
 "Usage: gbkc <command> [options]\n\n"
 "Commands:\n"
-"          check-profiles           Compare k-mer count profiles for all known alleles to check if they are unique\n"
-"          count                    Score reads based on comparison of k-mer count profiles to those for known alleles\n"
-"          distance                 Score reads based on comparison of k-mer pair distances to those for known alleles\n";
+"           check-profiles      Compare k-mer count profiles for all known alleles to check if they are unique\n"
+"           count               Score reads based on comparison of k-mer count profiles to those for known alleles\n"
+"           distance            Score reads based on comparison of k-mer pair distances to those for known alleles\n";
 
 int main(int argc, char** argv){
 
@@ -20,6 +20,7 @@ int main(int argc, char** argv){
     //
     // Read command line arguments
     //
+
     if(argc <= 1) {
         std::cout << GBKC_USAGE_MESSAGE;
         return 0;
@@ -48,8 +49,10 @@ int main(int argc, char** argv){
         }
     }
 
+
     //
     // Finished
     //
+
     return 0;
 }

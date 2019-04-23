@@ -131,9 +131,9 @@ static const char *CHECK_PROFILES_USAGE_MESSAGE =
 "Compare k-mer count profiles for all known alleles to check if they are unique.\n\n"
 "Usage: gbkc check-profiles [options]\n\n"
 "Commands:\n"
-"			-a 			multi-fasta file of alleles/haplotypes of interest\n"
-"			-l 			lower range of k values to be checked (default: 3)\n"
-"			-u 			upper range of k values to be checked (should not be greater than the read length)\n";
+"		-a       multi-fasta file of alleles/haplotypes of interest\n"
+"		-l       lower range of k values to be checked (default: 3)\n"
+"		-u       upper range of k values to be checked (should not be greater than the read length)\n";
 
 
 //
