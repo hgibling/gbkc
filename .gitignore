@@ -1,4 +1,4 @@
 src/gbkc
-src/gbkc.o
+src/*.o
 test*
 src/test*
