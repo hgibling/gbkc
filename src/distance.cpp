@@ -23,6 +23,20 @@
 
 
 //
+// Define functions
+//
+
+kmer_position_map kmer_positions(const std::string& sequence, size_t k)
+{
+	kmer_position_map out_map;
+    for (size_t i = 0; i < sequence.size() - k + 1; ++i) {
+        out_map.insert(std::pair<std::string, size_t>(sequence.substr(i, k), i));
+    }
+    return out_map;
+}
+
+
+//
 // Help message
 //
 
@@ -175,6 +189,25 @@ int distanceMain(int argc, char** argv) {
     fprintf(stderr, "input k value: %zu\n", input_k);
     fprintf(stderr, "input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
     fprintf(stderr, "input mean fragment length: %f, standard deviation: %f\n", fragment_length, fragment_stdev);
+
+
+    //
+    // Get k-mer distances for alleles
+    //
+
+    std::map<std::string, kmer_position_map> allele_positions;
+    for (size_t a = 0; a < alleles.size(); ++a) {
+    	kmer_position_map single_allele_positions = kmer_positions(alleles[a].sequence, input_k);
+    	allele_positions[alleles[a].name] = single_allele_positions;
+    }
+
+    // for (auto iter = allele_positions.begin(); iter != allele_positions.end(); ++iter) {
+    // 	fprintf(stderr, "%s:\n", iter->first.c_str());
+    // 	kmer_position_map &single_allele_positions = iter->second;
+    // 	for (auto iter2 = single_allele_positions.begin(); iter2 != single_allele_positions.end(); ++iter2) {
+    // 		fprintf(stderr, "%s, %zu\n", iter2->first.c_str(), iter2->second);
+    // 	}
+    // }
 
 
     //
