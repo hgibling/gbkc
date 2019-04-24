@@ -231,6 +231,7 @@ int countMain(int argc, char** argv) {
     fprintf(stderr, "\ninput alleles: %s\n", input_alleles_file.c_str());
     fprintf(stderr, "number of alleles: %zu\n", allele_names.size());
     fprintf(stderr, "input k value: %zu\n", input_k);
+    fprintf(stderr, "input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
     fprintf(stderr, "input lambda error: %f\n", lambda_error);
     fprintf(stderr, "lambda calculated as: %f\n", lambda);
 
