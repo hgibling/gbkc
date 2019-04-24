@@ -6,6 +6,9 @@
 #include <iostream>
 #include <string>
 
+#include "check-profiles.h"
+#include "count.h"
+
 
 int distanceMain(int argc, char** argv);
 
