@@ -26,10 +26,6 @@
 // Define functions
 //
 
-// Tell KSEQ (from Heng Li) what functions to use to open/read files
-KSEQ_INIT(gzFile, gzread)
-
-
 // Calculate lambda
 double calculate_lambda(double read_length, size_t k, double coverage, double sequencing_error)
 {
