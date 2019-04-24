@@ -159,17 +159,10 @@ int checkprofilesMain(int argc, char** argv) {
     for (char c; (c = getopt_long(argc, argv, "a:l:u:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
-            case 'a':
-                arg >> input_alleles_file;
-                break;
-            case 'l':
-                arg >> lower_range;
-                break;
-            case 'u':
-                arg >> upper_range;
-                break;
-            default:
-                exit(EXIT_FAILURE);
+            case 'a': arg >> input_alleles_file; break;
+            case 'l': arg >> lower_range; break;
+            case 'u': arg >> upper_range; break;
+            default: exit(EXIT_FAILURE);
         }
     }
 

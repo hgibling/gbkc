@@ -21,7 +21,6 @@
 #include "kseq.h"
 
 
-
 //
 // Define functions
 //
@@ -127,35 +126,16 @@ int countMain(int argc, char** argv) {
     for (char c; (c = getopt_long(argc, argv, "a:1:2:k:l:e:c:m:o:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
-            case 'a':
-                arg >> input_alleles_file;
-                break;
-            case '1':
-                arg >> input_reads_file1;
-                break;
-            case '2':
-                arg >> input_reads_file2;
-                break;
-            case 'k':
-                arg >> input_k;
-                break;
-            case 'l':
-                arg >> read_length;
-                break;
-            case 'e':
-                arg >> sequencing_error;
-                break;
-            case 'c':
-                arg >> coverage;
-                break;
-            case 'm':
-                arg >> lambda_error;
-                break;
-            case 'o':
-                arg >> output_name;
-                break;
-            default:
-                exit(EXIT_FAILURE);
+            case 'a': arg >> input_alleles_file; break;
+            case '1': arg >> input_reads_file1; break;
+            case '2': arg >> input_reads_file2; break;
+            case 'k': arg >> input_k; break;
+            case 'l': arg >> read_length; break;
+            case 'e': arg >> sequencing_error; break;
+            case 'c': arg >> coverage; break;
+            case 'm': arg >> lambda_error; break;
+            case 'o': arg >> output_name; break;
+            default: exit(EXIT_FAILURE);
         }
     }
 
