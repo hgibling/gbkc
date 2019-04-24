@@ -10,6 +10,14 @@
 #include "count.h"
 
 
+//
+// Type defs
+//
+
+// Define k-mer position structure
+typedef std::multimap<std::string, size_t> kmer_position_map;
+
+
 int distanceMain(int argc, char** argv);
 
 
