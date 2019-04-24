@@ -22,16 +22,13 @@
 #include "kseq.h"
 
 
-#define SUBPROGRAM "distance"
-
-
 //
 // Help message
 //
 
 static const char *DISTANCE_USAGE_MESSAGE =
 "Score reads based on comparison of k-mer pair distances to those for known alleles.\n\n"
-"Usage: gbkc count [options]\n\n"
+"Usage: gbkc distance [options]\n\n"
 "Commands:\n"
 "		-a       multi-fasta file of alleles/haplotypes of interest\n"
 "		-1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
@@ -45,6 +42,9 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "		-o       output file name (default: results.csv)\n";
 
 
+//
+// Program commands
+//
 
 int distanceMain(int argc, char** argv) {
 
