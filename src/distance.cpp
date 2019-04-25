@@ -26,6 +26,7 @@
 // Define functions
 //
 
+// Get positions for every k-mer in a sequence
 kmer_position_map kmer_positions(const std::string& sequence, size_t k)
 {
 	kmer_position_map out_map;
@@ -33,6 +34,32 @@ kmer_position_map kmer_positions(const std::string& sequence, size_t k)
         out_map.insert(std::pair<std::string, size_t>(sequence.substr(i, k), i));
     }
     return out_map;
+}
+
+// Get pairs of outermost k-mers from a read pair
+std::pair<std::string, std::string> outer_kmers(const std::string& first, const std::string& second, size_t k, size_t p)
+{
+	std::pair<std::string, std::string> out_pair;
+	if (p == 0) {
+		out_pair = make_pair(reverse_complement(first.substr(0, k)), second.substr(0, k));
+	}
+	else if (p == 1) {
+		out_pair = make_pair(first.substr(0, k), reverse_complement(second.substr(0, k)));
+	}
+	else {
+		fprintf(stderr, "outer_kmer position must be 0 or 1.\n");
+        exit(EXIT_FAILURE);
+	}
+	return out_pair;
+}
+
+// Get outer distance between two k-mers
+size_t outer_distance(const std::string& first, const std::string& second, size_t k, size_t p = input_penalty)
+{
+	size_t outer_distance;
+	size_t second_k = second + k;
+	outer_distance = ((second_k - first) < 0) ? p : (second_k - first);
+	return outer_distance;
 }
 
 
@@ -53,6 +80,7 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "		-c       sequencing coverage\n"
 "		-f       mean fragment length\n"
 "		-s       standard deviation of fragment length\n"
+"		-p 		 penalty fragment length when k-mer pairs aren't observed in an allele (default: 10000000)\n"
 "		-o       output file name (default: results.csv)\n";
 
 
@@ -81,9 +109,10 @@ int distanceMain(int argc, char** argv) {
     double coverage = -1;
     double fragment_length = -1;
     double fragment_stdev = -1;
+    size_t input_penalty = 10000000;
     std::string output_name = "distance-results.csv";
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:l:e:c:f:s:o:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:l:e:c:f:s:o:p:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -96,6 +125,7 @@ int distanceMain(int argc, char** argv) {
             case 'f': arg >> fragment_length; break;
             case 's': arg >> fragment_stdev; break;
             case 'o': arg >> output_name; break;
+            case 'p': arg >> input_penalty; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -156,6 +186,10 @@ int distanceMain(int argc, char** argv) {
     // Get read sequences
     std::vector<sequence_record> reads1 = read_sequences_from_file(input_reads_file1);
     std::vector<sequence_record> reads2 = read_sequences_from_file(input_reads_file2);
+    if (reads1.size() != reads2.size()) {
+    	fprintf(stderr, "All reads must have a mate (need same number of reads in first and second list).\n");
+        exit(EXIT_FAILURE);
+    }
 
 
     //
@@ -171,7 +205,7 @@ int distanceMain(int argc, char** argv) {
 
 
     //
-    // Get k-mer distances for alleles
+    // Get k-mer positions for alleles
     //
 
     std::map<std::string, kmer_position_map> allele_positions;
@@ -180,13 +214,24 @@ int distanceMain(int argc, char** argv) {
     	allele_positions[alleles[a].name] = single_allele_positions;
     }
 
-    // for (auto iter = allele_positions.begin(); iter != allele_positions.end(); ++iter) {
-    // 	fprintf(stderr, "%s:\n", iter->first.c_str());
-    // 	kmer_position_map &single_allele_positions = iter->second;
-    // 	for (auto iter2 = single_allele_positions.begin(); iter2 != single_allele_positions.end(); ++iter2) {
-    // 		fprintf(stderr, "%s, %zu\n", iter2->first.c_str(), iter2->second);
-    // 	}
-    // }
+
+	//
+	// Get outer k-mer pairs for each read pair
+	//
+
+    // Assuming reads are in paired order in both lists
+	// std::map<std::string, outer_kmer_map> read_pairs;
+	// for (size_t r = 0; r < reads1.size(); ++r) {
+
+	// 	// Get both first read kmer and reverse complement second read kmer, and reverse complement first read kmer
+	// 	// and second read kmer, since we don't know orientation of the reads
+	// 	std::pair<std::string, std::string> first_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, input_k, 0);
+	// 	std::pair<std::string, std::string> second_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, input_k, 1);
+
+	// 	outer_kmer_map single_read_map;
+	// 	single_read_map.insert({first_rc, }); 
+	// 	read_pairs[reads1[r].name] = single_read_map
+	// }
 
 
     //

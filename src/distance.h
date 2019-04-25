@@ -16,7 +16,7 @@
 
 // Define k-mer position structure
 typedef std::multimap<std::string, size_t> kmer_position_map;
-
+typedef std::map<std::pair<std::string, std::string>, size_t> outer_kmer_map;
 
 int distanceMain(int argc, char** argv);
 
