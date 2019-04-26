@@ -41,10 +41,10 @@ std::pair<std::string, std::string> outer_kmers(const std::string& first, const 
 {
 	std::pair<std::string, std::string> out_pair;
 	if (p == 0) {
-		out_pair = make_pair(reverse_complement(first.substr(0, k)), second.substr(0, k));
+		out_pair = make_pair(reverse_complement(first).substr(0, k), second.substr(0, k));
 	}
 	else if (p == 1) {
-		out_pair = make_pair(first.substr(0, k), reverse_complement(second.substr(0, k)));
+		out_pair = make_pair(first.substr(0, k), reverse_complement(second).substr(0, k));
 	}
 	else {
 		fprintf(stderr, "outer_kmer position must be 0 or 1.\n");
@@ -54,13 +54,13 @@ std::pair<std::string, std::string> outer_kmers(const std::string& first, const 
 }
 
 // Get outer distance between two k-mers
-size_t outer_distance(const std::string& first, const std::string& second, size_t k, size_t p = input_penalty)
-{
-	size_t outer_distance;
-	size_t second_k = second + k;
-	outer_distance = ((second_k - first) < 0) ? p : (second_k - first);
-	return outer_distance;
-}
+// size_t outer_distance(const std::string& first, const std::string& second, size_t k, size_t p = input_penalty)
+// {
+// 	size_t outer_distance;
+// 	size_t second_k = second + k;
+// 	outer_distance = ((second_k - first) < 0) ? p : (second_k - first);
+// 	return outer_distance;
+// }
 
 
 //
@@ -220,18 +220,17 @@ int distanceMain(int argc, char** argv) {
 	//
 
     // Assuming reads are in paired order in both lists
-	// std::map<std::string, outer_kmer_map> read_pairs;
-	// for (size_t r = 0; r < reads1.size(); ++r) {
+	std::multimap<std::string, std::pair<std::string, std::string>> read_pairs;
+	for (size_t r = 0; r < reads1.size(); ++r) {
 
-	// 	// Get both first read kmer and reverse complement second read kmer, and reverse complement first read kmer
-	// 	// and second read kmer, since we don't know orientation of the reads
-	// 	std::pair<std::string, std::string> first_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, input_k, 0);
-	// 	std::pair<std::string, std::string> second_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, input_k, 1);
+		// Get both first read kmer and reverse complement second read kmer, and reverse complement first read kmer
+		// and second read kmer, since we don't know orientation of the reads
+        std::pair<std::string, std::string> first_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, input_k, 0);
+        std::pair<std::string, std::string> second_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, input_k, 1);
 
-	// 	outer_kmer_map single_read_map;
-	// 	single_read_map.insert({first_rc, }); 
-	// 	read_pairs[reads1[r].name] = single_read_map
-	// }
+		read_pairs.insert({reads1[r].name, first_rc});
+        read_pairs.insert({reads1[r].name, second_rc});
+	}
 
 
     //
