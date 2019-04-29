@@ -37,14 +37,14 @@ kmer_position_map kmer_positions(const std::string& sequence, size_t k)
 }
 
 // Get pairs of outermost k-mers from a read pair
-std::pair<std::string, std::string> outer_kmers(const std::string& first, const std::string& second, size_t k, size_t p)
+std::pair<std::string, std::string> outer_kmers(const std::string& first_kmer, const std::string& second_kmer, size_t k, size_t p)
 {
     std::pair<std::string, std::string> out_pair;
     if (p == 0) {
-        out_pair = make_pair(reverse_complement(first).substr(0, k), second.substr(0, k));
+        out_pair = make_pair(reverse_complement(first_kmer).substr(0, k), first_kmer.substr(0, k));
     }
     else if (p == 1) {
-        out_pair = make_pair(first.substr(0, k), reverse_complement(second).substr(0, k));
+        out_pair = make_pair(first_kmer.substr(0, k), reverse_complement(first_kmer).substr(0, k));
     }
     else {
         fprintf(stderr, "outer_kmer position must be 0 or 1.\n");
@@ -163,6 +163,11 @@ int distanceMain(int argc, char** argv) {
 
     if (fragment_length <= 0 || fragment_stdev <=0) {
         fprintf(stderr, "Mean fragment length and standard deviation must be greater than 0. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (input_penalty == 0) {
+        fprintf(stderr, "Penalty for when k-mer pairs don't exist in an allele must be greater than 0 (and should be a very large number, e.g. 1000000. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
