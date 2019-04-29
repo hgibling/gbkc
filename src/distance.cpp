@@ -61,6 +61,15 @@ size_t outer_distance(size_t first_kmer_position, size_t second_kmer_position, s
     return distance;
 }
 
+// Log normal distribution probability density function
+double log_normal_pdf(double fragment_length, double mean, double standard_dev)
+{
+    double variance = pow(standard_dev, 2);
+    double pi2 = M_PI * 2;
+    double probability = (- log(sqrt(variance * pi2))) - (pow((fragment_length - mean), 2)) / (2 * variance);
+    return probability;
+}
+
 
 //
 // Help message
@@ -208,6 +217,7 @@ int distanceMain(int argc, char** argv) {
     fprintf(stderr, "input mean fragment length: %f, standard deviation: %f\n", fragment_length, fragment_stdev);
     fprintf(stderr, "input penalty: %zu\n", input_penalty);
 
+
     //
     // Get k-mer positions for alleles
     //
@@ -240,9 +250,6 @@ int distanceMain(int argc, char** argv) {
     //
     // Calculate distance scores for each allele
     //
-
-
-
 
 
     //
