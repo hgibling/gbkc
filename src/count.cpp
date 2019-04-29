@@ -86,15 +86,15 @@ static const char *COUNT_USAGE_MESSAGE =
 "Score reads based on comparison of k-mer count profiles to those for known alleles.\n\n"
 "Usage: gbkc count [options]\n\n"
 "Commands:\n"
-"		-a       multi-fasta file of alleles/haplotypes of interest\n"
-"		-1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
-"		-2       [optional] multi-fasta/q file of sequencing reads to score (second in pair)\n"
-"		-k       size of k-mers to use\n"
-"		-l       read length\n"
-"		-e       sequencing error rate\n"
-"		-c       sequencing coverage\n"
-"		-m       error rate for lambda (default: 1)\n"
-"		-o       output file name (default: results.csv)\n";
+"       -a       multi-fasta file of alleles/haplotypes of interest\n"
+"       -1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
+"       -2       [optional] multi-fasta/q file of sequencing reads to score (second in pair)\n"
+"       -k       size of k-mers to use\n"
+"       -l       read length\n"
+"       -e       sequencing error rate\n"
+"       -c       sequencing coverage\n"
+"       -m       error rate for lambda (default: 1)\n"
+"       -o       output file name (default: results.csv)\n";
 
 
 //
@@ -102,14 +102,14 @@ static const char *COUNT_USAGE_MESSAGE =
 //
 
 int countMain(int argc, char** argv) {
-	
-	if(argc <= 1) {
+
+    if(argc <= 1) {
         std::cout << COUNT_USAGE_MESSAGE;
         return 0;
     };
 
 
-	//
+    //
     // Read command line arguments
     //
 
@@ -172,7 +172,7 @@ int countMain(int argc, char** argv) {
     }
 
 
-	//
+    //
     // Read files
     //
 
@@ -190,7 +190,7 @@ int countMain(int argc, char** argv) {
     // Get read sequences
     std::vector<sequence_record> reads1 = read_sequences_from_file(input_reads_file1);
     std::vector<sequence_record> reads2;
-	if (!input_reads_file2.empty()) {
+    if (!input_reads_file2.empty()) {
         reads2 = read_sequences_from_file(input_reads_file2);
     }
 
@@ -299,5 +299,5 @@ int countMain(int argc, char** argv) {
     // Finished
     //
 
-	return 0;
+    return 0;
 }

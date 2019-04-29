@@ -7,7 +7,6 @@
 
 
 static const char *GBKC_USAGE_MESSAGE =
-"Program: gbkc\n"
 "Usage: gbkc <command> [options]\n\n"
 "Commands:\n"
 "           check-profiles      Compare k-mer count profiles for all known alleles to check if they are unique\n"

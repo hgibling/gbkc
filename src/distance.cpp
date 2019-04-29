@@ -186,7 +186,7 @@ int distanceMain(int argc, char** argv) {
     std::vector<sequence_record> reads1 = read_sequences_from_file(input_reads_file1);
     std::vector<sequence_record> reads2 = read_sequences_from_file(input_reads_file2);
     if (reads1.size() != reads2.size()) {
-    	fprintf(stderr, "All reads must have a mate (need same number of reads in first and second list).\n");
+        fprintf(stderr, "All reads must have a mate (need same number of reads in first and second list).\n");
         exit(EXIT_FAILURE);
     }
 
