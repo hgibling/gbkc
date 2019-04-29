@@ -29,7 +29,7 @@
 // Get positions for every k-mer in a sequence
 kmer_position_map kmer_positions(const std::string& sequence, size_t k)
 {
-	kmer_position_map out_map;
+    kmer_position_map out_map;
     for (size_t i = 0; i < sequence.size() - k + 1; ++i) {
         out_map.insert(std::pair<std::string, size_t>(sequence.substr(i, k), i));
     }
@@ -39,28 +39,27 @@ kmer_position_map kmer_positions(const std::string& sequence, size_t k)
 // Get pairs of outermost k-mers from a read pair
 std::pair<std::string, std::string> outer_kmers(const std::string& first, const std::string& second, size_t k, size_t p)
 {
-	std::pair<std::string, std::string> out_pair;
-	if (p == 0) {
-		out_pair = make_pair(reverse_complement(first).substr(0, k), second.substr(0, k));
-	}
-	else if (p == 1) {
-		out_pair = make_pair(first.substr(0, k), reverse_complement(second).substr(0, k));
-	}
-	else {
-		fprintf(stderr, "outer_kmer position must be 0 or 1.\n");
+    std::pair<std::string, std::string> out_pair;
+    if (p == 0) {
+        out_pair = make_pair(reverse_complement(first).substr(0, k), second.substr(0, k));
+    }
+    else if (p == 1) {
+        out_pair = make_pair(first.substr(0, k), reverse_complement(second).substr(0, k));
+    }
+    else {
+        fprintf(stderr, "outer_kmer position must be 0 or 1.\n");
         exit(EXIT_FAILURE);
-	}
-	return out_pair;
+    }
+    return out_pair;
 }
 
-// Get outer distance between two k-mers
-// size_t outer_distance(const std::string& first, const std::string& second, size_t k, size_t p = input_penalty)
-// {
-// 	size_t outer_distance;
-// 	size_t second_k = second + k;
-// 	outer_distance = ((second_k - first) < 0) ? p : (second_k - first);
-// 	return outer_distance;
-// }
+// Get outer distance between two k-mers given their positions
+size_t outer_distance(size_t first_kmer_position, size_t second_kmer_position, size_t k, size_t penalty)
+{
+    size_t distance;
+    distance = ((second_kmer_position + k) < first_kmer_position) ? penalty : ((second_kmer_position + k) - first_kmer_position);
+    return distance;
+}
 
 
 //
@@ -71,17 +70,17 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "Score reads based on comparison of k-mer pair distances to those for known alleles.\n\n"
 "Usage: gbkc distance [options]\n\n"
 "Commands:\n"
-"		-a       multi-fasta file of alleles/haplotypes of interest\n"
-"		-1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
-"		-2       multi-fasta/q file of sequencing reads to score (second in pair)\n"
-"		-k       size of k-mers to use\n"
-"		-l       read length\n"
-"		-e       sequencing error rate\n"
-"		-c       sequencing coverage\n"
-"		-f       mean fragment length\n"
-"		-s       standard deviation of fragment length\n"
-"		-p 		 penalty fragment length when k-mer pairs aren't observed in an allele (default: 10000000)\n"
-"		-o       output file name (default: results.csv)\n";
+"       -a       multi-fasta file of alleles/haplotypes of interest\n"
+"       -1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
+"       -2       multi-fasta/q file of sequencing reads to score (second in pair)\n"
+"       -k       size of k-mers to use\n"
+"       -l       read length\n"
+"       -e       sequencing error rate\n"
+"       -c       sequencing coverage\n"
+"       -f       mean fragment length\n"
+"       -s       standard deviation of fragment length\n"
+"       -p       penalty fragment length when k-mer pairs aren't observed in an allele (default: 10000000)\n"
+"       -o       output file name (default: results.csv)\n";
 
 
 //
@@ -90,13 +89,13 @@ static const char *DISTANCE_USAGE_MESSAGE =
 
 int distanceMain(int argc, char** argv) {
 
-	if(argc <= 1) {
+    if(argc <= 1) {
         std::cout << DISTANCE_USAGE_MESSAGE;
         return 0;
     };
 
 
-	//
+    //
     // Read command line arguments
     //
 
@@ -124,8 +123,8 @@ int distanceMain(int argc, char** argv) {
             case 'c': arg >> coverage; break;
             case 'f': arg >> fragment_length; break;
             case 's': arg >> fragment_stdev; break;
-            case 'o': arg >> output_name; break;
             case 'p': arg >> input_penalty; break;
+            case 'o': arg >> output_name; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -168,7 +167,7 @@ int distanceMain(int argc, char** argv) {
     }
 
 
-	//
+    //
     // Read files
     //
 
@@ -202,7 +201,7 @@ int distanceMain(int argc, char** argv) {
     fprintf(stderr, "input k value: %zu\n", input_k);
     fprintf(stderr, "input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
     fprintf(stderr, "input mean fragment length: %f, standard deviation: %f\n", fragment_length, fragment_stdev);
-
+    fprintf(stderr, "input penalty: %zu\n", input_penalty);
 
     //
     // Get k-mer positions for alleles
@@ -210,32 +209,40 @@ int distanceMain(int argc, char** argv) {
 
     std::map<std::string, kmer_position_map> allele_positions;
     for (size_t a = 0; a < alleles.size(); ++a) {
-    	kmer_position_map single_allele_positions = kmer_positions(alleles[a].sequence, input_k);
-    	allele_positions[alleles[a].name] = single_allele_positions;
+        kmer_position_map single_allele_positions = kmer_positions(alleles[a].sequence, input_k);
+        allele_positions[alleles[a].name] = single_allele_positions;
     }
 
 
-	//
-	// Get outer k-mer pairs for each read pair
-	//
+    //
+    // Get outer k-mer pairs for each read pair
+    //
 
     // Assuming reads are in paired order in both lists
-	std::multimap<std::string, std::pair<std::string, std::string>> read_pairs;
-	for (size_t r = 0; r < reads1.size(); ++r) {
+    std::multimap<std::string, std::pair<std::string, std::string>> read_pairs;
+    for (size_t r = 0; r < reads1.size(); ++r) {
 
-		// Get both first read kmer and reverse complement second read kmer, and reverse complement first read kmer
-		// and second read kmer, since we don't know orientation of the reads
+        // Get both first read kmer and reverse complement second read kmer, and reverse complement first read kmer
+        // and second read kmer, since we don't know orientation of the reads
         std::pair<std::string, std::string> first_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, input_k, 0);
         std::pair<std::string, std::string> second_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, input_k, 1);
 
-		read_pairs.insert({reads1[r].name, first_rc});
+        read_pairs.insert({reads1[r].name, first_rc});
         read_pairs.insert({reads1[r].name, second_rc});
-	}
+    }
+
+
+    //
+    // Calculate distance scores for each allele
+    //
+
+
+
 
 
     //
     // Finished
     //
 
-	return 0;
+    return 0;
 }
