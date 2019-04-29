@@ -68,10 +68,10 @@ double score_profile(const kmer_count_map& read_map, const kmer_count_map& allel
     double score = 0;
     for (auto iter = allele_union_kmers.begin(); iter != allele_union_kmers.end(); ++iter) {
         std::string kmer = *iter;
-        auto rc_iter = read_map.find(kmer);
-        size_t kmer_count_in_read = rc_iter != read_map.end() ? rc_iter->second : 0;
-        auto ac_iter = allele_map.find(kmer);
-        size_t kmer_count_in_allele = ac_iter != allele_map.end() ? ac_iter->second : 0;
+        auto read_iter = read_map.find(kmer);
+        size_t kmer_count_in_read = read_iter != read_map.end() ? read_iter->second : 0;
+        auto allele_iter = allele_map.find(kmer);
+        size_t kmer_count_in_allele = allele_iter != allele_map.end() ? allele_iter->second : 0;
         score += score_kmer(kmer_count_in_read, kmer_count_in_allele, lambda, lambda_error); 
     }
     return score;

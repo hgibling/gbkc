@@ -27,15 +27,15 @@ KSEQ_INIT(gzFile, gzread)
 
 
 // Get complement of a sequence
-char complement(char c)
+char complement(char nucleotide)
 {
-    switch(c) {
+    switch(nucleotide) {
         case 'A': return 'T';
         case 'C': return 'G';
         case 'G': return 'C';
         case 'T': return 'A';
         default: 
-            fprintf(stderr, "Error: unrecognized nucleotide %c\n", c);
+            fprintf(stderr, "Error: unrecognized nucleotide %c\n", nucleotide);
             exit(EXIT_FAILURE);
     }
 }
@@ -43,19 +43,19 @@ char complement(char c)
 // Get reverse complement of a sequence
 std::string reverse_complement(const std::string& sequence)
 {
-    size_t l = sequence.size();
-    std::string rc(l, 'N');
-    for (size_t i = 0; i < l; ++i) {
-        rc[i] = complement(sequence[l - i - 1]);
+    size_t length = sequence.size();
+    std::string out_reverse_complement(length, 'N');
+    for (size_t i = 0; i < length; ++i) {
+        out_reverse_complement[i] = complement(sequence[length - i - 1]);
     }
-    return rc;
+    return out_reverse_complement;
 }
 
 // Get the lexicographically lowest k-mer between it and its reverse complement
 std::string canonical_kmer(const std::string& kmer)
 {
-    std::string rc_kmer = reverse_complement(kmer);
-    return kmer < rc_kmer ? kmer : rc_kmer;
+    std::string reverse_complement_kmer = reverse_complement(kmer);
+    return kmer < reverse_complement_kmer ? kmer : reverse_complement_kmer;
 }
 
 // Obtain all (canonical) k-mers and their counts from a sequence
@@ -100,11 +100,11 @@ std::vector<sequence_record> read_sequences_from_file(const std::string& input_f
 // Compare k-mer count profiles
 // from https://stackoverflow.com/questions/8473009/how-to-efficiently-compare-two-maps-of-strings-in-c (user sebastian-mach)
 template <typename Map>
-bool compare_profiles (Map const &lhs, Map const &rhs)
+bool compare_profiles (Map const &first_map, Map const &second_map)
 {
-    return lhs.size() == rhs.size()
-        && std::equal(lhs.begin(), lhs.end(),
-                      rhs.begin());
+    return first_map.size() == second_map.size()
+        && std::equal(first_map.begin(), first_map.end(),
+                      second_map.begin());
 }
 
 // Generate all possible comparisons of two alleles
