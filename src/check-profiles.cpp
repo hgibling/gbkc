@@ -27,7 +27,7 @@ KSEQ_INIT(gzFile, gzread)
 
 
 // Get complement of a sequence
-char complement(char nucleotide)
+char complement(const char nucleotide)
 {
     switch(nucleotide) {
         case 'A': return 'T';
@@ -59,7 +59,7 @@ std::string canonical_kmer(const std::string& kmer)
 }
 
 // Obtain all (canonical) k-mers and their counts from a sequence
-kmer_count_map count_kmers(const std::string& sequence, size_t k)
+kmer_count_map count_kmers(const std::string& sequence, const size_t k)
 {
     kmer_count_map out_map;
     for (size_t i = 0; i < sequence.size() - k + 1; ++i) {
@@ -100,7 +100,7 @@ std::vector<sequence_record> read_sequences_from_file(const std::string& input_f
 // Compare k-mer count profiles
 // from https://stackoverflow.com/questions/8473009/how-to-efficiently-compare-two-maps-of-strings-in-c (user sebastian-mach)
 template <typename Map>
-bool compare_profiles (Map const &first_map, Map const &second_map)
+bool compare_profiles (const Map& first_map, const Map& second_map)
 {
     return first_map.size() == second_map.size()
         && std::equal(first_map.begin(), first_map.end(),

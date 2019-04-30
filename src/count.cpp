@@ -26,7 +26,7 @@
 //
 
 // Calculate lambda
-double calculate_lambda(double read_length, size_t k, double coverage, double sequencing_error)
+double calculate_lambda(const double read_length, const size_t k, const double coverage, const double sequencing_error)
 {
     double lambda = (read_length - k + 1) * (coverage / read_length) * pow((1 - sequencing_error), k);
     return lambda;
@@ -43,7 +43,7 @@ double log_factorial(size_t c)
 }
 
 // Poisson distribution probability mass function (from Jared Simpson)
-double log_poisson_pmf(double c, double lambda)
+double log_poisson_pmf(const double c, const double lambda)
 {
     double f_c = log_factorial(c);
     double p = (double)c * log(lambda) - lambda - f_c;
@@ -51,7 +51,7 @@ double log_poisson_pmf(double c, double lambda)
 }
 
 // Score reads k-mer count against allele k-mer count (individual k-mers)
-double score_kmer(size_t read_count, size_t allele_count, double lambda, double lambda_error)
+double score_kmer(const size_t read_count, const size_t allele_count, const double lambda, const double lambda_error)
 {
     double score = 0;
     if (allele_count == 0) {
@@ -63,7 +63,7 @@ double score_kmer(size_t read_count, size_t allele_count, double lambda, double 
 }
 
 // Score read k-mer count proflile against allele k-mer count profile
-double score_profile(const kmer_count_map& read_map, const kmer_count_map& allele_map, const std::unordered_set<std::string>& allele_union_kmers, double lambda, double lambda_error)
+double score_profile(const kmer_count_map& read_map, const kmer_count_map& allele_map, const std::unordered_set<std::string>& allele_union_kmers, const double lambda, const double lambda_error)
 {
     double score = 0;
     for (auto iter = allele_union_kmers.begin(); iter != allele_union_kmers.end(); ++iter) {

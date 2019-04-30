@@ -28,10 +28,10 @@ struct sequence_record
 // Functions
 //
 
-char complement(char c);
+char complement(const char c);
 std::string reverse_complement(const std::string& sequence);
 std::string canonical_kmer(const std::string& kmer);
-kmer_count_map count_kmers(const std::string& sequence, size_t k);
+kmer_count_map count_kmers(const std::string& sequence, const  size_t k);
 std::vector<sequence_record> read_sequences_from_file(const std::string& input_filename);
 
 int checkprofilesMain(int argc, char** argv);

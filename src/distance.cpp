@@ -27,7 +27,7 @@
 //
 
 // Get positions for every k-mer in a sequence
-kmer_position_map kmer_positions(const std::string& sequence, size_t k)
+kmer_position_map kmer_positions(const std::string& sequence, const size_t k)
 {
     kmer_position_map out_map;
     for (size_t i = 0; i < sequence.size() - k + 1; ++i) {
@@ -37,7 +37,7 @@ kmer_position_map kmer_positions(const std::string& sequence, size_t k)
 }
 
 // Get pairs of outermost k-mers from a read pair
-std::pair<std::string, std::string> outer_kmers(const std::string& first_kmer, const std::string& second_kmer, size_t k, size_t p)
+std::pair<std::string, std::string> outer_kmers(const std::string& first_kmer, const std::string& second_kmer, const size_t k, const size_t p)
 {
     std::pair<std::string, std::string> out_pair;
     if (p == 0) {
@@ -54,7 +54,7 @@ std::pair<std::string, std::string> outer_kmers(const std::string& first_kmer, c
 }
 
 // Get outer distance between two k-mers given their positions
-size_t outer_distance(size_t first_kmer_position, size_t second_kmer_position, size_t k, size_t penalty)
+size_t outer_distance(const size_t first_kmer_position, const size_t second_kmer_position, const size_t k, const size_t penalty)
 {
     size_t distance;
     distance = ((second_kmer_position + k) < first_kmer_position) ? penalty : ((second_kmer_position + k) - first_kmer_position);
@@ -62,13 +62,19 @@ size_t outer_distance(size_t first_kmer_position, size_t second_kmer_position, s
 }
 
 // Log normal distribution probability density function
-double log_normal_pdf(double fragment_length, double mean, double standard_dev)
+double log_normal_pdf(const double distance, const double mean, const double standard_dev)
 {
     double variance = pow(standard_dev, 2);
     double pi2 = M_PI * 2;
-    double probability = (- log(sqrt(variance * pi2))) - (pow((fragment_length - mean), 2)) / (2 * variance);
+    double probability = (- log(sqrt(variance * pi2))) - (pow((distance - mean), 2)) / (2 * variance);
     return probability;
 }
+
+// Score reads outer k-mers with allele k-mer outer distance
+// double score_kmer_distances(const pair<std::string, std::string> read_kmer_pair, const kmer_position_map allele_distances, const double fragment_length, const double fragment_stdev)
+// {
+
+// }
 
 
 //
