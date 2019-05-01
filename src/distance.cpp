@@ -79,7 +79,7 @@ double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_
     auto check1 = allele_distances.find(read_kmer_pair.first);
     auto check2 = allele_distances.find(read_kmer_pair.second);
     if ((check1 == allele_distances.end() || check2 == allele_distances.end())) {
-        final_score = penalty;
+        final_score = log_normal_pdf(penalty, fragment_length, fragment_stdev);
     }
     else {
         auto range1 = allele_distances.equal_range(read_kmer_pair.first);
