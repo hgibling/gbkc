@@ -5,6 +5,7 @@
 #include <iostream>
 #include <map>
 #include <math.h>
+#include <numeric>
 #include <set>
 #include <sstream>
 #include <stdint.h>
@@ -57,7 +58,7 @@ std::pair<std::string, std::string> outer_kmers(const std::string& first_kmer, c
 size_t outer_distance(const size_t first_kmer_position, const size_t second_kmer_position, const size_t k, const size_t penalty)
 {
     size_t distance;
-    distance = ((second_kmer_position + k) < first_kmer_position) ? penalty : ((second_kmer_position + k) - first_kmer_position);
+    distance = (second_kmer_position >= first_kmer_position) ? ((second_kmer_position + k) - first_kmer_position) : penalty;
     return distance;
 }
 
@@ -71,10 +72,33 @@ double log_normal_pdf(const double distance, const double mean, const double sta
 }
 
 // Score reads outer k-mers with allele k-mer outer distance
-// double score_kmer_distances(const pair<std::string, std::string> read_kmer_pair, const kmer_position_map allele_distances, const double fragment_length, const double fragment_stdev)
-// {
+double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_pair, const kmer_position_map allele_distances, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty)
+{
+    double final_score = 0;
+    std::vector<double> kmer_pair_scores;
+    auto check1 = allele_distances.find(read_kmer_pair.first);
+    auto check2 = allele_distances.find(read_kmer_pair.second);
+    if ((check1 == allele_distances.end() || check2 == allele_distances.end())) {
+        final_score = penalty;
+    }
+    else {
+        auto range1 = allele_distances.equal_range(read_kmer_pair.first);
+        auto range2 = allele_distances.equal_range(read_kmer_pair.second);
+        for (auto iter1 = range1.first; iter1 != range1.second; ++iter1) {
+            for (auto iter2 = range2.first; iter2 != range2.second; ++iter2) {
+                size_t distance = outer_distance(iter1->second, iter2->second, k, penalty);
+                kmer_pair_scores.push_back(log_normal_pdf(distance, fragment_length, fragment_stdev));
+            }
+        }
+        // Sum each log probability
+        final_score = std::accumulate(kmer_pair_scores.begin(), kmer_pair_scores.end(), 0);
+    }
+    return final_score;
+}
 
-// }
+
+// auto read_iter = read_map.find(kmer);
+//         size_t kmer_count_in_read = read_iter != read_map.end() ? read_iter->second : 0;
 
 
 //
@@ -90,7 +114,7 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "       -2       multi-fasta/q file of sequencing reads to score (second in pair)\n"
 "       -k       size of k-mers to use\n"
 "       -l       read length\n"
-"       -e       sequencing error rate\n"
+"       -e       sequencing error rate (between 0 and 1)\n"
 "       -c       sequencing coverage\n"
 "       -f       mean fragment length\n"
 "       -s       standard deviation of fragment length\n"
@@ -145,7 +169,7 @@ int distanceMain(int argc, char** argv) {
     }
 
 
-    // Check for parameter arguments
+    // Check for correct parameter arguments
     if (input_alleles_file.empty()) {
         fprintf(stderr, "No file for allele sequences. Check parameters.\n");
         exit(EXIT_FAILURE);
@@ -256,6 +280,29 @@ int distanceMain(int argc, char** argv) {
     //
     // Calculate distance scores for each allele
     //
+
+    std::pair<std::string, std::string> kmerpair ("AAA", "TAT");
+
+    std::multimap<std::string, size_t> dict {
+        {"AAA", 0},
+        {"AAA", 1},
+        {"TAT", 2},
+        {"AGT", 3},
+        {"TAT", 4},
+        {"AAA", 5}
+    };
+
+    
+
+    double out = score_kmer_distances(kmerpair, dict, fragment_length, fragment_stdev, input_k, input_penalty);
+
+    
+    fprintf(stderr, "score: %f\n", out);
+
+    std::vector<size_t> tryme = {1,4,6,9,22};
+    size_t trymesum = std::accumulate(tryme.begin(), tryme.end(), 0);
+    fprintf(stderr, "TEST: %zu\n", trymesum);
+    
 
 
     //
