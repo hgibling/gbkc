@@ -1,5 +1,6 @@
 // distance - Score reads based on comparison of k-mer pair distances to those for known alleles
 
+#include <algorithm>
 #include <cmath>
 #include <getopt.h>
 #include <iostream>
@@ -74,12 +75,12 @@ double log_normal_pdf(const double distance, const double mean, const double sta
 // Score reads outer k-mers with allele k-mer outer distance
 double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_pair, const kmer_position_map allele_distances, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty)
 {
-    double final_score = 0;
+    double score = 0;
     std::vector<double> kmer_pair_scores;
     auto check1 = allele_distances.find(read_kmer_pair.first);
     auto check2 = allele_distances.find(read_kmer_pair.second);
     if ((check1 == allele_distances.end() || check2 == allele_distances.end())) {
-        final_score = log_normal_pdf(penalty, fragment_length, fragment_stdev);
+        score = log_normal_pdf(penalty, fragment_length, fragment_stdev);
     }
     else {
         auto range1 = allele_distances.equal_range(read_kmer_pair.first);
@@ -91,14 +92,30 @@ double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_
             }
         }
         // Sum each log probability
-        final_score = std::accumulate(kmer_pair_scores.begin(), kmer_pair_scores.end(), 0);
+        score = std::accumulate(kmer_pair_scores.begin(), kmer_pair_scores.end(), 0);
     }
-    return final_score;
+    return score;
 }
 
-
-// auto read_iter = read_map.find(kmer);
-//         size_t kmer_count_in_read = read_iter != read_map.end() ? read_iter->second : 0;
+// Score each read
+double score_read_kmer_pairs(const kmer_position_map allele_positions, const kmer_pairs_map read_pairs, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty)
+{
+    double score = 0;
+    std::set<std::string> read_names;
+    for (auto iter = read_pairs.begin(); iter != read_pairs.end(); ++iter) {
+        read_names.insert(iter->first);
+    }
+    for (auto iter1 = read_names.begin(); iter1 != read_names.end(); ++iter1) {
+        auto range = read_pairs.equal_range(*iter1);
+        std::vector<double> compare_scores;
+        for (auto iter2 = range.first; iter2 != range.second; ++iter2) {
+            compare_scores.push_back(score_kmer_distances(iter2->second, allele_positions, fragment_length, fragment_stdev, k, penalty));
+        }
+        double max_score = *max_element(compare_scores.begin(), compare_scores.end());
+        score += max_score;
+    }
+    return score;
+}
 
 
 //
@@ -264,7 +281,7 @@ int distanceMain(int argc, char** argv) {
     //
 
     // Assuming reads are in paired order in both lists
-    std::multimap<std::string, std::pair<std::string, std::string>> read_pairs;
+    kmer_pairs_map read_pairs;
     for (size_t r = 0; r < reads1.size(); ++r) {
 
         // Get both first read kmer and reverse complement second read kmer, and reverse complement first read kmer
@@ -281,28 +298,25 @@ int distanceMain(int argc, char** argv) {
     // Calculate distance scores for each allele
     //
 
-    std::pair<std::string, std::string> kmerpair ("AAA", "TAT");
+    std::map<std::string, double> all_scores;
+    for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
+        std::string a = *iter;
+        all_scores[a] = score_read_kmer_pairs(allele_positions[a], read_pairs, fragment_length, fragment_stdev, input_k, input_penalty);
+    }
 
-    std::multimap<std::string, size_t> dict {
-        {"AAA", 0},
-        {"AAA", 1},
-        {"TAT", 2},
-        {"AGT", 3},
-        {"TAT", 4},
-        {"AAA", 5}
-    };
 
-    
+    //
+    // Save output
+    //
 
-    double out = score_kmer_distances(kmerpair, dict, fragment_length, fragment_stdev, input_k, input_penalty);
+    FILE * output;
+    output = fopen(output_name.c_str(), "w");
 
-    
-    fprintf(stderr, "score: %f\n", out);
+    for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
+        fprintf(output, "%s,%f\n", iter->first.c_str(), iter->second);
+    }
 
-    std::vector<size_t> tryme = {1,4,6,9,22};
-    size_t trymesum = std::accumulate(tryme.begin(), tryme.end(), 0);
-    fprintf(stderr, "TEST: %zu\n", trymesum);
-    
+    fclose(output);
 
 
     //
