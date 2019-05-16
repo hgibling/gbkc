@@ -1,4 +1,8 @@
 src/gbkc
 src/*.o
 test*
+*csv
+*txt
 src/test*
+src/*csv
+src/*txt
