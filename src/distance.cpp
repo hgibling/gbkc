@@ -72,13 +72,26 @@ double log_normal_pdf(const double distance, const double mean, const double sta
     return probability;
 }
 
+// Get the geometric mean of a vector of numbers
+double geometric_mean(const std::vector<double> numbers)
+{
+    double sum = 0;
+    size_t size = numbers.size();
+    for (auto iter = numbers.begin(); iter != numbers.end(); ++iter) {
+        sum += log(*iter);
+    }
+    double geomean = exp(sum/size); 
+    return geomean;
+}
+
 // Score reads outer k-mers with allele k-mer outer distance
-double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_pair, const kmer_position_map allele_distances, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty)
+double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_pair, const kmer_position_map allele_distances, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const std::string method)
 {
     double score = 0;
     std::vector<double> kmer_pair_scores;
     auto check1 = allele_distances.find(read_kmer_pair.first);
     auto check2 = allele_distances.find(read_kmer_pair.second);
+    // If either kmer is not present in the list of allele kmer distances, use the penalty score instead
     if ((check1 == allele_distances.end() || check2 == allele_distances.end())) {
         score = log_normal_pdf(penalty, fragment_length, fragment_stdev);
     }
@@ -91,14 +104,31 @@ double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_
                 kmer_pair_scores.push_back(log_normal_pdf(distance, fragment_length, fragment_stdev));
             }
         }
-        // Sum each log probability
-        score = std::accumulate(kmer_pair_scores.begin(), kmer_pair_scores.end(), 0);
+        if (method == "sum") {
+            // Sum each log probability
+            score = std::accumulate(kmer_pair_scores.begin(), kmer_pair_scores.end(), 0);
+        }
+        else if (method == "mean") {
+            // Get the arithmetic mean of the log probabilities
+            score = std::accumulate(kmer_pair_scores.begin(), kmer_pair_scores.end(), 0)/kmer_pair_scores.size();
+        }
+        else if (method == "geomean") {
+            // Get the geometric mean of the log probabilities
+            score = geometric_mean(kmer_pair_scores);
+        }
+        else if (method == "max") {
+            // Take the maximum log probability
+            score = *max_element(kmer_pair_scores.begin(), kmer_pair_scores.end());
+        }
+        else {
+            exit(EXIT_FAILURE);
+        }
     }
     return score;
 }
 
 // Score each read
-double score_read_kmer_pairs(const kmer_position_map allele_positions, const kmer_pairs_map read_pairs, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty)
+double score_read_kmer_pairs(const kmer_position_map allele_positions, const kmer_pairs_map read_pairs, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const std::string method)
 {
     double score = 0;
     std::set<std::string> read_names;
@@ -109,7 +139,7 @@ double score_read_kmer_pairs(const kmer_position_map allele_positions, const kme
         auto range = read_pairs.equal_range(*iter1);
         std::vector<double> compare_scores;
         for (auto iter2 = range.first; iter2 != range.second; ++iter2) {
-            compare_scores.push_back(score_kmer_distances(iter2->second, allele_positions, fragment_length, fragment_stdev, k, penalty));
+            compare_scores.push_back(score_kmer_distances(iter2->second, allele_positions, fragment_length, fragment_stdev, k, penalty, method));
         }
         double max_score = *max_element(compare_scores.begin(), compare_scores.end());
         score += max_score;
@@ -136,6 +166,7 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "       -f       mean fragment length\n"
 "       -s       standard deviation of fragment length\n"
 "       -p       penalty fragment length when k-mer pairs aren't observed in an allele (default: 10000000)\n"
+"       -m       method for summarizing scores when kmer pairs occur more than once in an allele\n"
 "       -o       output file name (default: results.csv)\n";
 
 
@@ -165,9 +196,10 @@ int distanceMain(int argc, char** argv) {
     double fragment_length = -1;
     double fragment_stdev = -1;
     size_t input_penalty = 10000000;
+    std::string method;
     std::string output_name = "distance-results.csv";
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:l:e:c:f:s:o:p:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:l:e:c:f:s:p:m:o:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -180,6 +212,7 @@ int distanceMain(int argc, char** argv) {
             case 'f': arg >> fragment_length; break;
             case 's': arg >> fragment_stdev; break;
             case 'p': arg >> input_penalty; break;
+            case 'm': arg >> method; break;
             case 'o': arg >> output_name; break;
             default: exit(EXIT_FAILURE);
         }
@@ -227,6 +260,11 @@ int distanceMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
+    if (method != "sum" && method != "mean" && method != "geomean" && method != "max") {
+        fprintf(stderr, "Method must be one of 'sum', 'mean', 'geomean', or 'max'. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
 
     //
     // Read files
@@ -263,6 +301,7 @@ int distanceMain(int argc, char** argv) {
     fprintf(stderr, "input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
     fprintf(stderr, "input mean fragment length: %f, standard deviation: %f\n", fragment_length, fragment_stdev);
     fprintf(stderr, "input penalty: %zu\n", input_penalty);
+    fprintf(stderr, "input scoring method: %s\n", method.c_str());
 
 
     //
@@ -301,7 +340,7 @@ int distanceMain(int argc, char** argv) {
     std::map<std::string, double> all_scores;
     for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
         std::string a = *iter;
-        all_scores[a] = score_read_kmer_pairs(allele_positions[a], read_pairs, fragment_length, fragment_stdev, input_k, input_penalty);
+        all_scores[a] = score_read_kmer_pairs(allele_positions[a], read_pairs, fragment_length, fragment_stdev, input_k, input_penalty, method);
     }
 
 
