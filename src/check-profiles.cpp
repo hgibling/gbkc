@@ -108,18 +108,31 @@ bool compare_profiles (const Map& first_map, const Map& second_map)
 }
 
 // Generate all possible comparisons of two alleles
-std::vector<std::pair<std::string, std::string>> pairwise_comparisons(const std::set<std::string>& alleles) 
+std::vector<std::pair<std::string, std::string>> pairwise_comparisons(const std::set<std::string>& alleles, bool same) 
 {
     std::vector<std::pair<std::string, std::string>> pairs;
     std::vector<std::string> alleles_vector(alleles.begin(), alleles.end());
-    for (size_t i = 0; i < alleles_vector.size() - 1; ++i) {
-        for (size_t j = 1; j < alleles_vector.size(); ++j) {
-            if (i != j){
+    for (size_t i = 0; i < alleles_vector.size(); ++i) {
+        for (size_t j = 0; j < alleles_vector.size(); ++j) {
+            if ((same == true) and (i <= j)) {
+                pairs.push_back(std::make_pair(alleles_vector[i], alleles_vector[j]));
+            }
+            else if (i < j) {
                 pairs.push_back(std::make_pair(alleles_vector[i], alleles_vector[j]));
             }
         }
     }
     return pairs;
+}
+
+// Split a diploid genotype into a vector of its alleles
+std::vector<std::string> genotype_split(const std::string genotype, const char delimiter)
+{
+    size_t position = genotype.find(delimiter);
+    std::string allele1 = genotype.substr(0, position);
+    std::string allele2 = genotype.substr(position + 1, genotype.size());
+    std::vector<std::string> out = {allele1, allele2};
+    return out;
 }
 
 
@@ -133,7 +146,8 @@ static const char *CHECK_PROFILES_USAGE_MESSAGE =
 "Commands:\n"
 "       -a       multi-fasta file of alleles/haplotypes of interest\n"
 "       -l       lower range of k values to be checked (default: 3)\n"
-"       -u       upper range of k values to be checked (should not be greater than the read length)\n";
+"       -u       upper range of k values to be checked (should not be greater than the read length)\n"
+"       -p       ploidy (haploid or diploid; default: haploid)\n";
 
 
 //
@@ -155,13 +169,15 @@ int checkprofilesMain(int argc, char** argv) {
     std::string input_alleles_file;
     int lower_range = 3;
     int upper_range = -1;
+    std::string ploidy = "haploid";
 
-    for (char c; (c = getopt_long(argc, argv, "a:l:u:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:l:u:p:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case 'l': arg >> lower_range; break;
             case 'u': arg >> upper_range; break;
+            case 'p': arg >> ploidy; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -174,6 +190,11 @@ int checkprofilesMain(int argc, char** argv) {
 
     if (upper_range <= 0 || upper_range < lower_range) {
         fprintf(stderr, "Upper range for testing k-mer count profiles must be greater than 0 and greater than the lower range. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (ploidy != "haploid" && ploidy != "diploid") {
+        fprintf(stderr, "Ploidy must be either 'haploid' or 'diploid'. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -198,29 +219,67 @@ int checkprofilesMain(int argc, char** argv) {
     // Compare k-mer count profiles
     //
 
-    // Get list of allele comparisons to make
-    std::vector<std::pair<std::string, std::string>> allele_pairs = pairwise_comparisons(allele_names);
+    // // Get list of allele comparisons to make
+    std::vector<std::pair<std::string, std::string>> allele_pairs;
+    std::vector<std::pair<std::string, std::string>> genotype_pairs;
+    std::vector<std::pair<std::string, std::string>> genotypes;
+
+    if (ploidy == "haploid") {
+        allele_pairs = pairwise_comparisons(allele_names, false);
+    }
+    else if (ploidy == "diploid") {
+        genotypes = pairwise_comparisons(allele_names, true);
+        std::set<std::string> genotype_names;
+        for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
+            std::string name = iter->first + "/" + iter->second;
+            genotype_names.insert(name);
+        }
+        genotype_pairs = pairwise_comparisons(genotype_names, false);
+    }
 
     // Iterate over all possible values of k given read length l
     for (int k = lower_range; k < upper_range + 1; ++k) {
         printf("Testing k = %d... ", k);
 
-        // All k-mers in each allele
+        // All k-mers in each allele or genotype
         std::map<std::string, kmer_count_map> allele_kmer_counts; 
+        std::map<std::string, kmer_count_map> genotype_kmer_counts;
 
         // Get count profiles for each allele
         for (size_t a = 0; a < alleles.size(); ++a) {
             std::map<std::string, size_t> single_allele_kmer_counts = count_kmers(alleles[a].sequence, k);
-            allele_kmer_counts[alleles[a].name.c_str()] = single_allele_kmer_counts;
+            allele_kmer_counts[alleles[a].name] = single_allele_kmer_counts;
+        }
+
+        // Combine profiles for diploid genotypes if applicable
+        if (ploidy == "diploid") {
+            for (auto iter1 = genotypes.begin(); iter1 != genotypes.end(); ++iter1) {
+                kmer_count_map combined_alelle_map = allele_kmer_counts[iter1->first];
+                for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
+                    combined_alelle_map[iter2->first] += iter2->second;
+                }
+                std::string genotype_name = iter1->first + "/" + iter1->second;
+                genotype_kmer_counts[genotype_name] = combined_alelle_map;
+            }
         }
 
         // Check if k-mer count profiles are unique amongst all alleles
         std::vector<std::pair<std::string, std::string>> identical_profiles;
 
-        for (auto iter = allele_pairs.begin(); iter != allele_pairs.end(); ++iter) {
-            bool allele_vs_allele = compare_profiles(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
-            if (allele_vs_allele == 1) {
-                identical_profiles.push_back(std::make_pair(iter->first, iter->second));
+        if (ploidy == "haploid") {
+            for (auto iter = allele_pairs.begin(); iter != allele_pairs.end(); ++iter) {
+                bool allele_vs_allele = compare_profiles(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
+                if (allele_vs_allele == 1) {
+                    identical_profiles.push_back(std::make_pair(iter->first, iter->second));
+                }
+            }
+        }
+        else if (ploidy == "diploid") {
+            for (auto iter = genotype_pairs.begin(); iter != genotype_pairs.end(); ++iter) {
+                bool genotype_vs_genotype = compare_profiles(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
+                if (genotype_vs_genotype == 1) {
+                    identical_profiles.push_back(std::make_pair(iter->first, iter->second));
+                }
             }
         }
 
