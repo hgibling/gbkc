@@ -43,10 +43,10 @@ std::pair<std::string, std::string> outer_kmers(const std::string& first_kmer, c
 {
     std::pair<std::string, std::string> out_pair;
     if (p == 0) {
-        out_pair = make_pair(reverse_complement(first_kmer).substr(0, k), first_kmer.substr(0, k));
+        out_pair = make_pair(reverse_complement(first_kmer).substr(0, k), second_kmer.substr(0, k));
     }
     else if (p == 1) {
-        out_pair = make_pair(first_kmer.substr(0, k), reverse_complement(first_kmer).substr(0, k));
+        out_pair = make_pair(first_kmer.substr(0, k), reverse_complement(second_kmer).substr(0, k));
     }
     else {
         fprintf(stderr, "outer_kmer position must be 0 or 1.\n");
@@ -330,6 +330,11 @@ int distanceMain(int argc, char** argv) {
 
         read_pairs.insert({reads1[r].name, first_rc});
         read_pairs.insert({reads1[r].name, second_rc});
+    }
+
+    for (auto iter = read_pairs.begin(); iter != read_pairs.end(); ++iter) {
+        std::pair<std::string, std::string> x = iter->second;
+        fprintf(stderr, "%s: %s and %s\n", iter->first.c_str(), x.first.c_str(), x.second.c_str());
     }
 
 
