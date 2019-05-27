@@ -106,15 +106,27 @@ double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_
         }
         if (method == "sum") {
             // Sum each log probability
-            score = std::accumulate(kmer_pair_scores.begin(), kmer_pair_scores.end(), 0);
+            std::vector<double> antilog;
+            for (auto iter = kmer_pair_scores.begin(); iter != kmer_pair_scores.end(); ++iter) {
+                antilog.push_back(exp(*iter));
+            }
+            score = log(std::accumulate(antilog.begin(), antilog.end(), 0));
         }
         else if (method == "mean") {
             // Get the arithmetic mean of the log probabilities
-            score = std::accumulate(kmer_pair_scores.begin(), kmer_pair_scores.end(), 0)/kmer_pair_scores.size();
+            std::vector<double> antilog;
+            for (auto iter = kmer_pair_scores.begin(); iter != kmer_pair_scores.end(); ++iter) {
+                antilog.push_back(exp(*iter));
+            }
+            score = log(std::accumulate(antilog.begin(), antilog.end(), 0)/antilog.size());
         }
         else if (method == "geomean") {
             // Get the geometric mean of the log probabilities
-            score = geometric_mean(kmer_pair_scores);
+            std::vector<double> antilog;
+            for (auto iter = kmer_pair_scores.begin(); iter != kmer_pair_scores.end(); ++iter) {
+                antilog.push_back(exp(*iter));
+            }
+            score = log(geometric_mean(antilog));
         }
         else if (method == "max") {
             // Take the maximum log probability
