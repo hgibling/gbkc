@@ -332,11 +332,6 @@ int distanceMain(int argc, char** argv) {
         read_pairs.insert({reads1[r].name, second_rc});
     }
 
-    for (auto iter = read_pairs.begin(); iter != read_pairs.end(); ++iter) {
-        std::pair<std::string, std::string> x = iter->second;
-        fprintf(stderr, "%s: %s and %s\n", iter->first.c_str(), x.first.c_str(), x.second.c_str());
-    }
-
 
     //
     // Calculate distance scores for each allele
