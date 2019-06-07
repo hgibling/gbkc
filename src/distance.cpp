@@ -73,7 +73,7 @@ double log_normal_pdf(const double distance, const double mean, const double sta
 }
 
 // Get the geometric mean of a vector of numbers
-double geometric_mean(const std::vector<double> numbers)
+double geometric_mean(const std::vector<double>& numbers)
 {
     double sum = 0;
     size_t size = numbers.size();
@@ -85,7 +85,7 @@ double geometric_mean(const std::vector<double> numbers)
 }
 
 // Score reads outer k-mers with allele k-mer outer distance
-double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_pair, const kmer_position_map allele_distances, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const std::string method)
+double score_kmer_distances(const std::pair<std::string, std::string>& read_kmer_pair, const kmer_position_map& allele_distances, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const std::string& method)
 {
     double score = 0;
     std::vector<double> kmer_pair_scores;
@@ -140,7 +140,7 @@ double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_
 }
 
 // Score each read
-double score_read_kmer_pairs(const kmer_position_map allele_positions, const kmer_pairs_map read_pairs, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const std::string method)
+double score_read_kmer_pairs(const kmer_position_map& allele_positions, const kmer_pairs_map& read_pairs, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const std::string& method)
 {
     double score = 0;
     std::set<std::string> read_names;
