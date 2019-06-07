@@ -39,14 +39,14 @@ kmer_position_map kmer_positions(const std::string& sequence, const size_t k)
 }
 
 // Get pairs of outermost k-mers from a read pair
-std::pair<std::string, std::string> outer_kmers(const std::string& first_kmer, const std::string& second_kmer, const size_t k, const size_t p)
+std::pair<std::string, std::string> outer_kmers(const std::string& first_read, const std::string& second_read, const size_t k, const size_t p)
 {
     std::pair<std::string, std::string> out_pair;
     if (p == 0) {
-        out_pair = make_pair(reverse_complement(first_kmer).substr(0, k), second_kmer.substr(0, k));
+        out_pair = make_pair(reverse_complement(first_read.substr(0, k)), second_read.substr(0, k));
     }
     else if (p == 1) {
-        out_pair = make_pair(first_kmer.substr(0, k), reverse_complement(second_kmer).substr(0, k));
+        out_pair = make_pair(first_read.substr(0, k), reverse_complement(second_read.substr(0, k)));
     }
     else {
         fprintf(stderr, "outer_kmer position must be 0 or 1.\n");
