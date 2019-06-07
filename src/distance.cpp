@@ -43,10 +43,10 @@ std::pair<std::string, std::string> outer_kmers(const std::string& first_read, c
 {
     std::pair<std::string, std::string> out_pair;
     if (p == 0) {
-        out_pair = make_pair(reverse_complement(first_read.substr(0, k)), second_read.substr(0, k));
+        out_pair = make_pair(first_read.substr(0, k), reverse_complement(second_read.substr(0, k)));
     }
     else if (p == 1) {
-        out_pair = make_pair(first_read.substr(0, k), reverse_complement(second_read.substr(0, k)));
+        out_pair = make_pair(second_read.substr(0, k), reverse_complement(first_read.substr(0, k)));
     }
     else {
         fprintf(stderr, "outer_kmer position must be 0 or 1.\n");
@@ -110,7 +110,7 @@ double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_
             for (auto iter = kmer_pair_scores.begin(); iter != kmer_pair_scores.end(); ++iter) {
                 antilog.push_back(exp(*iter));
             }
-            score = log(std::accumulate(antilog.begin(), antilog.end(), 0));
+            score = log(std::accumulate(antilog.begin(), antilog.end(), 0.0));
         }
         else if (method == "mean") {
             // Get the arithmetic mean of the log probabilities
@@ -118,7 +118,7 @@ double score_kmer_distances(const std::pair<std::string, std::string> read_kmer_
             for (auto iter = kmer_pair_scores.begin(); iter != kmer_pair_scores.end(); ++iter) {
                 antilog.push_back(exp(*iter));
             }
-            score = log(std::accumulate(antilog.begin(), antilog.end(), 0)/antilog.size());
+            score = log(std::accumulate(antilog.begin(), antilog.end(), 0.0)/antilog.size());
         }
         else if (method == "geomean") {
             // Get the geometric mean of the log probabilities
