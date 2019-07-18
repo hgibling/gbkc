@@ -177,7 +177,7 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "       -c       sequencing coverage\n"
 "       -f       mean fragment length\n"
 "       -s       standard deviation of fragment length\n"
-"       -p       penalty fragment length when k-mer pairs aren't observed in an allele (default: 10000000)\n"
+"       -p       penalty fragment length when k-mer pairs aren't observed in an allele (default: 10)\n"
 "       -m       method for summarizing scores when kmer pairs occur more than once in an allele\n"
 "       -o       output file name (default: results.csv)\n";
 
@@ -207,7 +207,7 @@ int distanceMain(int argc, char** argv) {
     double coverage = -1;
     double fragment_length = -1;
     double fragment_stdev = -1;
-    size_t input_penalty = 10000000;
+    size_t input_penalty = 10;
     std::string method;
     std::string output_name = "distance-results.csv";
 
@@ -268,7 +268,7 @@ int distanceMain(int argc, char** argv) {
     }
 
     if (input_penalty == 0) {
-        fprintf(stderr, "Penalty for when k-mer pairs don't exist in an allele must be greater than 0 (and should be a very large number, e.g. 1000000. Check parameters.\n");
+        fprintf(stderr, "Penalty for when k-mer pairs don't exist in an allele must be greater than 0 (and should not be similar to the fragment size). Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
