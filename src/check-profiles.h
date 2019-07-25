@@ -17,7 +17,7 @@
 typedef std::map<std::string, size_t> kmer_count_map;
 
 // Define k-mer count comparison structure
-typedef std::map<std::string, int> kmer_comparsion_map;
+typedef std::map<std::string, int> kmer_comparison_map;
 
 // Define sequence record structre
 struct sequence_record
