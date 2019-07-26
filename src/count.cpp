@@ -229,8 +229,22 @@ int countMain(int argc, char** argv) {
     // Count k-mers in alleles
     //
 
-    // All k-mers in each allele
+    // All k-mers in each allele/genotype
     std::map<std::string, kmer_count_map> allele_kmer_counts; 
+    std::map<std::string, kmer_count_map> genotype_kmer_counts; 
+
+    // Determine all possible genotypes if needed
+    std::vector<std::pair<std::string, std::string>> genotypes;
+    
+    if (ploidy == "diploid") {
+        genotypes = pairwise_comparisons(allele_names, true);
+        std::set<std::string> genotype_names;
+        for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
+            std::string name = iter->first + "/" + iter->second;
+            genotype_names.insert(name);
+        }
+        genotype_pairs = pairwise_comparisons(genotype_names, false);
+    }
 
     // Union of k-mers from all alleles
     std::unordered_set<std::string> allele_kmers;
@@ -254,9 +268,6 @@ int countMain(int argc, char** argv) {
 
     // k-mers and counts across all reads
     kmer_count_map all_reads_kmer_counts;
-
-    // Union of k-mers across all reads (do I need this?)
-    std::unordered_set<std::string> reads_kmers;
 
     // Iterate over each read
     for (size_t r = 0; r < reads1.size(); ++r) {
