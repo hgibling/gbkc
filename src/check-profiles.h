@@ -36,7 +36,7 @@ std::string reverse_complement(const std::string& sequence);
 std::string canonical_kmer(const std::string& kmer);
 kmer_count_map count_kmers(const std::string& sequence, const  size_t k);
 std::vector<sequence_record> read_sequences_from_file(const std::string& input_filename);
-std::vector<std::pair<std::string, std::string>> pairwise_comparisons(const std::set<std::string>& alleles, bool same) 
+std::vector<std::pair<std::string, std::string>> pairwise_comparisons(const std::set<std::string>& alleles, bool same);
 
 int checkprofilesMain(int argc, char** argv);
 
