@@ -89,6 +89,7 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -a       multi-fasta file of alleles/haplotypes of interest\n"
 "       -1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
 "       -2       [optional] multi-fasta/q file of sequencing reads to score (second in pair)\n"
+"       -p       ploidy (haploid or diploid; default: haploid)\n"
 "       -k       size of k-mers to use\n"
 "       -l       read length\n"
 "       -e       sequencing error rate\n"
@@ -116,6 +117,7 @@ int countMain(int argc, char** argv) {
     std::string input_alleles_file;
     std::string input_reads_file1;
     std::string input_reads_file2;
+    std::string ploidy = "haploid"
     size_t input_k = 0;
     double read_length = -1;
     double sequencing_error = -1;
@@ -123,12 +125,13 @@ int countMain(int argc, char** argv) {
     double lambda_error = 1;
     std::string output_name = "results.csv";
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:l:e:c:m:o:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:p:k:l:e:c:m:o:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case '1': arg >> input_reads_file1; break;
             case '2': arg >> input_reads_file2; break;
+            case 'p': arg >> ploidy; break;
             case 'k': arg >> input_k; break;
             case 'l': arg >> read_length; break;
             case 'e': arg >> sequencing_error; break;
@@ -148,6 +151,11 @@ int countMain(int argc, char** argv) {
 
     if (input_reads_file1.empty()) {
         fprintf(stderr, "No file for read sequences. One file must be specified for argument -1. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (ploidy != "haploid" && ploidy != "diploid") {
+        fprintf(stderr, "Ploidy must be either 'haploid' or 'diploid'. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -210,6 +218,7 @@ int countMain(int argc, char** argv) {
     fprintf(stderr, " %s", input_reads_file2.c_str());
     fprintf(stderr, "\ninput alleles: %s\n", input_alleles_file.c_str());
     fprintf(stderr, "number of alleles: %zu\n", allele_names.size());
+    fprintf(stderr, "%s profiles used\n", ploidy.c_str());
     fprintf(stderr, "input k value: %zu\n", input_k);
     fprintf(stderr, "input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
     fprintf(stderr, "input lambda error: %f\n", lambda_error);
