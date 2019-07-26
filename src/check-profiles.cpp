@@ -270,7 +270,7 @@ int checkprofilesMain(int argc, char** argv) {
 
     // Iterate over all possible values of k given read length l
     for (int k = lower_range; k < upper_range + 1; ++k) {
-        printf("Testing k = %d... ", k);
+        printf("Testing k = %d... \n", k);
 
         // All k-mers in each allele or genotype
         std::map<std::string, kmer_count_map> allele_kmer_counts; 
@@ -307,7 +307,7 @@ int checkprofilesMain(int argc, char** argv) {
                     identical_profiles.push_back(std::make_pair(iter->first, iter->second));
                 }
                 if (verbose == "true" && allele_vs_allele == 0) {
-                    std::string compared_alleles = iter->first + " and " + iter->second;
+                    std::string compared_alleles = iter->first + "," + iter->second;
                     kmer_comparisons[compared_alleles] = kmer_differences(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
                 }
             }
@@ -319,7 +319,7 @@ int checkprofilesMain(int argc, char** argv) {
                     identical_profiles.push_back(std::make_pair(iter->first, iter->second));
                 }
                 if (verbose == "true" && genotype_vs_genotype == 0) {
-                    std::string compared_genotypes = iter->first + " and " + iter->second;
+                    std::string compared_genotypes = iter->first + "," + iter->second;
                     kmer_comparisons[compared_genotypes] = kmer_differences(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
                 }
             }
@@ -338,9 +338,8 @@ int checkprofilesMain(int argc, char** argv) {
         } 
         else if (verbose == "true") {
             for (auto iter1 = kmer_comparisons.begin(); iter1 != kmer_comparisons.end(); ++iter1) {
-                printf("Comparing %s\n", iter1->first.c_str());
                 for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
-                    printf("%s: %i\n", iter2->first.c_str(), iter2->second);
+                    printf("%s,%s,%i\n", iter1->first.c_str(), iter2->first.c_str(), iter2->second);
                 }
 
             }
