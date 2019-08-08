@@ -95,6 +95,7 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -e       sequencing error rate\n"
 "       -c       sequencing coverage\n"
 "       -m       error rate for lambda (default: 1)\n"
+"       -f       length of flanking sequence on either end of region of interest (default: 10k)\n"
 "       -o       output file name (default: results.csv)\n";
 
 
@@ -123,9 +124,10 @@ int countMain(int argc, char** argv) {
     double sequencing_error = -1;
     double coverage = -1;
     double lambda_error = 1;
+    std::string flank_sequences_file;
     std::string output_name = "results.csv";
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:p:k:l:e:c:m:o:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:p:k:l:e:c:m:f:o:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -137,6 +139,7 @@ int countMain(int argc, char** argv) {
             case 'e': arg >> sequencing_error; break;
             case 'c': arg >> coverage; break;
             case 'm': arg >> lambda_error; break;
+            case 'f': arg >> flank_sequences_file; break;
             case 'o': arg >> output_name; break;
             default: exit(EXIT_FAILURE);
         }
@@ -179,6 +182,11 @@ int countMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
+    if (flank_sequences_file <= 0) {
+        fprintf(stderr, "No file for flank sequences. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
 
     //
     // Read files
@@ -211,6 +219,15 @@ int countMain(int argc, char** argv) {
 
 
     //
+    // Calculate mean and median k-mer counts from flanking sequences
+    //
+
+    std::map<std::string, kmer_count_map> allele_flank_kmer_counts; 
+
+
+
+
+    //
     // Print handy information
     //
 
@@ -221,6 +238,7 @@ int countMain(int argc, char** argv) {
     fprintf(stderr, "%s profiles used\n", ploidy.c_str());
     fprintf(stderr, "input k value: %zu\n", input_k);
     fprintf(stderr, "input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
+    fprintf(stderr, "input flank length: %f\n", flank_length);
     fprintf(stderr, "input lambda error: %f\n", lambda_error);
     fprintf(stderr, "lambda calculated as: %f\n", lambda);
 
