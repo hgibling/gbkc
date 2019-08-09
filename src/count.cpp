@@ -1,5 +1,6 @@
 // count - Score reads based on comparison of k-mer count profiles to those for known alleles
 
+#include <algorithm>
 #include <cmath>
 #include <getopt.h>
 #include <iostream>
@@ -95,7 +96,7 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -e       sequencing error rate\n"
 "       -c       sequencing coverage\n"
 "       -m       error rate for lambda (default: 1)\n"
-"       -f       length of flanking sequence on either end of region of interest (default: 10k)\n"
+"       -f       multi-fasta file of the two flanking sequences surrounding region of interest\n"
 "       -o       output file name (default: results.csv)\n";
 
 
@@ -124,7 +125,7 @@ int countMain(int argc, char** argv) {
     double sequencing_error = -1;
     double coverage = -1;
     double lambda_error = 1;
-    std::string flank_sequences_file;
+    std::string input_flanks_file;
     std::string output_name = "results.csv";
 
     for (char c; (c = getopt_long(argc, argv, "a:1:2:p:k:l:e:c:m:f:o:", NULL, NULL)) != -1;) {
@@ -139,7 +140,7 @@ int countMain(int argc, char** argv) {
             case 'e': arg >> sequencing_error; break;
             case 'c': arg >> coverage; break;
             case 'm': arg >> lambda_error; break;
-            case 'f': arg >> flank_sequences_file; break;
+            case 'f': arg >> input_flanks_file; break;
             case 'o': arg >> output_name; break;
             default: exit(EXIT_FAILURE);
         }
@@ -182,7 +183,7 @@ int countMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    if (flank_sequences_file <= 0) {
+    if (input_flanks_file.empty()) {
         fprintf(stderr, "No file for flank sequences. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
@@ -210,6 +211,9 @@ int countMain(int argc, char** argv) {
         reads2 = read_sequences_from_file(input_reads_file2);
     }
 
+    // Get flank sequences
+    std::vector<sequence_record> flanks = read_sequences_from_file(input_flanks_file);
+
 
     //
     // Calculate lambda
@@ -222,9 +226,47 @@ int countMain(int argc, char** argv) {
     // Calculate mean and median k-mer counts from flanking sequences
     //
 
-    std::map<std::string, kmer_count_map> allele_flank_kmer_counts; 
+    kmer_count_map combined_flanks_counts; 
 
+    // Iterate over each flank and combine
+    for (size_t f = 0; f < flanks.size(); ++f) {
+        kmer_count_map single_flank_kmer_counts = count_kmers(flanks[f].sequence, input_k);
+        if (f == 0) {
+            combined_flanks_counts = single_flank_kmer_counts;
+        }
+        else {
+            for (auto iter = single_flank_kmer_counts.begin(); iter != single_flank_kmer_counts.end(); ++iter) {
+                combined_flanks_counts[iter->first] += iter->second;
+            }
+        }
+    }
 
+    // Calculate mean and median k-mer counts
+
+    size_t sum_flank_kmer_counts = 0;
+    double mean_flank_kmer_counts;
+
+    std::vector<size_t> flank_counts_vector;
+    double median_flank_kmer_counts;
+
+    for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
+        sum_flank_kmer_counts += iter->second;
+        flank_counts_vector.push_back(iter->second);
+    }
+
+    mean_flank_kmer_counts = sum_flank_kmer_counts / combined_flanks_counts.size();
+
+    std::sort(flank_counts_vector.begin(), flank_counts_vector.end());
+    size_t median_position = flank_counts_vector.size() / 2;
+        // is rounded down if vector size is odd -- correct position for 0-based indexing
+        // need to adjust if even
+
+    if ((flank_counts_vector.size() % 2) == 0) {
+        median_flank_kmer_counts = (flank_counts_vector[median_position] + flank_counts_vector[median_position - 1]) / 2; 
+    }
+    else {
+        median_flank_kmer_counts = flank_counts_vector[median_position];
+    }
 
 
     //
@@ -234,13 +276,14 @@ int countMain(int argc, char** argv) {
     fprintf(stderr, "input reads: %s", input_reads_file1.c_str());
     fprintf(stderr, " %s", input_reads_file2.c_str());
     fprintf(stderr, "\ninput alleles: %s\n", input_alleles_file.c_str());
+    fprintf(stderr, "input flank sequences: %s\n", input_flanks_file.c_str());
     fprintf(stderr, "number of alleles: %zu\n", allele_names.size());
     fprintf(stderr, "%s profiles used\n", ploidy.c_str());
     fprintf(stderr, "input k value: %zu\n", input_k);
-    fprintf(stderr, "input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
-    fprintf(stderr, "input flank length: %f\n", flank_length);
+    fprintf(stderr, "input coverage: %f X, sequencing error: %f \n", coverage, sequencing_error);
     fprintf(stderr, "input lambda error: %f\n", lambda_error);
     fprintf(stderr, "lambda calculated as: %f\n", lambda);
+    fprintf(stderr, "flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
 
 
     //
