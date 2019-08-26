@@ -185,6 +185,7 @@ double genotype_score_read_kmer_pairs(const kmer_position_map& allele_positions1
     return score;
 }
 
+
 //
 // Help message
 //
@@ -196,14 +197,14 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "       -a       multi-fasta file of alleles/haplotypes of interest\n"
 "       -1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
 "       -2       multi-fasta/q file of sequencing reads to score (second in pair)\n"
-"       -p       ploidy (haploid or diploid; default: haploid)\n"
+"       -d       score diploid genotypes (if flag is not used, haploid scoring is performed)\n"
 "       -k       size of k-mers to use\n"
 "       -l       read length\n"
 "       -e       sequencing error rate (between 0 and 1)\n"
 "       -c       sequencing coverage\n"
 "       -f       mean fragment length\n"
 "       -s       standard deviation of fragment length\n"
-"       -y       penalty fragment length when k-mer pairs aren't observed in an allele (default: 10)\n"
+"       -p       penalty fragment length when k-mer pairs aren't observed in an allele (default: 10)\n"
 "       -m       method for summarizing scores when kmer pairs occur more than once in an allele\n"
 "       -o       output file name (default: results.csv)\n";
 
@@ -227,7 +228,6 @@ int distanceMain(int argc, char** argv) {
     std::string input_alleles_file;
     std::string input_reads_file1;
     std::string input_reads_file2;
-    std::string ploidy = "haploid";
     size_t input_k = 0;
     double read_length = -1;
     double sequencing_error = -1;
@@ -237,23 +237,24 @@ int distanceMain(int argc, char** argv) {
     size_t input_penalty = 10;
     std::string method;
     std::string output_name = "distance-results.csv";
+    bool is_diploid = false;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:p:k:l:e:c:f:s:y:m:o:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:l:e:c:f:s:p:m:o:d", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case '1': arg >> input_reads_file1; break;
             case '2': arg >> input_reads_file2; break;
-            case 'p': arg >> ploidy; break;
             case 'k': arg >> input_k; break;
             case 'l': arg >> read_length; break;
             case 'e': arg >> sequencing_error; break;
             case 'c': arg >> coverage; break;
             case 'f': arg >> fragment_length; break;
             case 's': arg >> fragment_stdev; break;
-            case 'y': arg >> input_penalty; break;
+            case 'p': arg >> input_penalty; break;
             case 'm': arg >> method; break;
             case 'o': arg >> output_name; break;
+            case 'd': is_diploid = true; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -267,11 +268,6 @@ int distanceMain(int argc, char** argv) {
 
     if (input_reads_file1.empty() || input_reads_file2.empty()) {
         fprintf(stderr, "Missing file(s) for read sequences. Two files must be specified (one for -1, one for -2). Check parameters.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (ploidy != "haploid" && ploidy != "diploid") {
-        fprintf(stderr, "Ploidy must be either 'haploid' or 'diploid'. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -339,20 +335,26 @@ int distanceMain(int argc, char** argv) {
     // Print handy information
     //
 
-    fprintf(stderr, "input reads: %s and %s\n", input_reads_file1.c_str(), input_reads_file2.c_str());
-    fprintf(stderr, "input alleles: %s\n", input_alleles_file.c_str());
-    fprintf(stderr, "number of alleles: %zu\n", allele_names.size());
-    fprintf(stderr, "input k value: %zu\n", input_k);
-    fprintf(stderr, "input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
-    fprintf(stderr, "input mean fragment length: %f, standard deviation: %f\n", fragment_length, fragment_stdev);
-    fprintf(stderr, "input penalty: %zu\n", input_penalty);
-    fprintf(stderr, "input scoring method: %s\n", method.c_str());
+    fprintf(stderr, "Input reads: %s and %s\n", input_reads_file1.c_str(), input_reads_file2.c_str());
+    fprintf(stderr, "Input alleles: %s\n", input_alleles_file.c_str());
+    fprintf(stderr, "Number of alleles: %zu\n", allele_names.size());
+    if (is_diploid == false) {
+        fprintf(stderr, "Haploid profiles used\n");
+    }
+    else if (is_diploid == true) {
+        fprintf(stderr, "Diploid profiles used\n");
+    }
+    fprintf(stderr, "Input k value: %zu\n", input_k);
+    fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
+    fprintf(stderr, "Input mean fragment length: %f, standard deviation: %f\n", fragment_length, fragment_stdev);
+    fprintf(stderr, "Input penalty: %zu\n", input_penalty);
+    fprintf(stderr, "Input scoring method: %s\n", method.c_str());
 
 
     // Determine all possible genotypes if needed
     std::vector<std::pair<std::string, std::string>> genotypes;
 
-    if (ploidy == "diploid") {
+    if (is_diploid == true) {
         genotypes = pairwise_comparisons(allele_names, true);
     }
 
@@ -392,13 +394,13 @@ int distanceMain(int argc, char** argv) {
 
     std::map<std::string, double> all_scores;
 
-    if (ploidy == "haplotype") {
+    if (is_diploid == false) {
         for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
             std::string a = *iter;
             all_scores[a] = allele_score_read_kmer_pairs(allele_positions[a], read_pairs, fragment_length, fragment_stdev, input_k, input_penalty, method);
         }
     }
-    else if (ploidy == "diploid") {
+    else if (is_diploid == true) {
         for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
             std::string genotype_name = iter->first + "/" + iter->second;
             all_scores[genotype_name] = genotype_score_read_kmer_pairs(allele_positions[iter->first], allele_positions[iter->second], read_pairs, fragment_length, fragment_stdev, input_k, input_penalty, method);
