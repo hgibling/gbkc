@@ -169,7 +169,7 @@ static const char *CHECK_PROFILES_USAGE_MESSAGE =
 "       -a       multi-fasta file of alleles/haplotypes of interest\n"
 "       -l       lower range of k values to be checked (default: 3)\n"
 "       -u       upper range of k values to be checked (should not be greater than the read length)\n"
-"       -p       ploidy (haploid or diploid; default: haploid)\n"
+"       -d       check diploid genotypes (if flag is not used, haploid check is performed)\n"
 "       -v       verbose printout of comparisons when profiles are not identical (true or false; default: false)\n";
 
 
@@ -192,17 +192,19 @@ int checkprofilesMain(int argc, char** argv) {
     std::string input_alleles_file;
     int lower_range = 3;
     int upper_range = -1;
-    std::string ploidy = "haploid";
     std::string verbose = "false";
+    bool is_diploid = false;
+    bool is_verbose = false;
 
-    for (char c; (c = getopt_long(argc, argv, "a:l:u:p:v:", NULL, NULL)) != -1;) {
+
+    for (char c; (c = getopt_long(argc, argv, "a:l:u:pv", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case 'l': arg >> lower_range; break;
             case 'u': arg >> upper_range; break;
-            case 'p': arg >> ploidy; break;
-            case 'v': arg >> verbose; break;
+            case 'd': is_diploid = true; break;
+            case 'v': is_verbose = true; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -215,16 +217,6 @@ int checkprofilesMain(int argc, char** argv) {
 
     if (upper_range <= 0 || upper_range < lower_range) {
         fprintf(stderr, "Upper range for testing k-mer count profiles must be greater than 0 and greater than the lower range. Check parameters.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (ploidy != "haploid" && ploidy != "diploid") {
-        fprintf(stderr, "Ploidy must be either 'haploid' or 'diploid'. Check parameters.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (verbose != "true" && verbose != "false") {
-        fprintf(stderr, "Verbose must be either 'true' or 'false'. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -254,10 +246,10 @@ int checkprofilesMain(int argc, char** argv) {
     std::vector<std::pair<std::string, std::string>> genotype_pairs;
     std::vector<std::pair<std::string, std::string>> genotypes;
 
-    if (ploidy == "haploid") {
+    if (is_diploid == false) {
         allele_pairs = pairwise_comparisons(allele_names, false);
     }
-    else if (ploidy == "diploid") {
+    else if (is_diploid == true) {
         genotypes = pairwise_comparisons(allele_names, true);
         std::set<std::string> genotype_names;
         for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
@@ -283,7 +275,7 @@ int checkprofilesMain(int argc, char** argv) {
         }
 
         // Combine profiles for diploid genotypes if applicable
-        if (ploidy == "diploid") {
+        if (is_diploid == true) {
             for (auto iter1 = genotypes.begin(); iter1 != genotypes.end(); ++iter1) {
                 kmer_count_map combined_alelle_map = allele_kmer_counts[iter1->first];
                 for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
@@ -300,32 +292,32 @@ int checkprofilesMain(int argc, char** argv) {
         // k-mer comparison map
         std::map<std::string, kmer_comparison_map> kmer_comparisons;
 
-        if (ploidy == "haploid") {
+        if (is_diploid == false) {
             for (auto iter = allele_pairs.begin(); iter != allele_pairs.end(); ++iter) {
                 bool allele_vs_allele = compare_profiles(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
                 if (allele_vs_allele == 1) {
                     identical_profiles.push_back(std::make_pair(iter->first, iter->second));
                 }
-                if (verbose == "true" && allele_vs_allele == 0) {
+                if (is_verbose == true && allele_vs_allele == 0) {
                     std::string compared_alleles = iter->first + "," + iter->second;
                     kmer_comparisons[compared_alleles] = kmer_differences(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
                 }
             }
         }
-        else if (ploidy == "diploid") {
+        else if (is_diploid == true) {
             for (auto iter = genotype_pairs.begin(); iter != genotype_pairs.end(); ++iter) {
                 bool genotype_vs_genotype = compare_profiles(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
                 if (genotype_vs_genotype == 1) {
                     identical_profiles.push_back(std::make_pair(iter->first, iter->second));
                 }
-                if (verbose == "true" && genotype_vs_genotype == 0) {
+                if (is_verbose == true && genotype_vs_genotype == 0) {
                     std::string compared_genotypes = iter->first + "," + iter->second;
                     kmer_comparisons[compared_genotypes] = kmer_differences(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
                 }
             }
         }
 
-        if (verbose == "false") {
+        if (is_verbose == false) {
             if (identical_profiles.size() > 0) {
                 printf("Some alleles had identical k-mer count profiles:\n");
                 for (auto iter = identical_profiles.begin(); iter != identical_profiles.end(); ++iter) {
@@ -336,7 +328,7 @@ int checkprofilesMain(int argc, char** argv) {
                 printf("All k-mer count profiles are unique\n");
             }
         } 
-        else if (verbose == "true") {
+        else if (is_verbose == true) {
             for (auto iter1 = kmer_comparisons.begin(); iter1 != kmer_comparisons.end(); ++iter1) {
                 for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
                     printf("%s,%s,%i\n", iter1->first.c_str(), iter2->first.c_str(), iter2->second);
