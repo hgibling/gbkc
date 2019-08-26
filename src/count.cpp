@@ -90,7 +90,7 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -a       multi-fasta file of alleles/haplotypes of interest\n"
 "       -1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
 "       -2       [optional] multi-fasta/q file of sequencing reads to score (second in pair)\n"
-"       -p       ploidy (haploid or diploid; default: haploid)\n"
+"       -d       score diploid genotypes (if flag is not used, haploid scoring is performed)\n"
 "       -k       size of k-mers to use\n"
 "       -l       read length\n"
 "       -e       sequencing error rate\n"
@@ -119,7 +119,6 @@ int countMain(int argc, char** argv) {
     std::string input_alleles_file;
     std::string input_reads_file1;
     std::string input_reads_file2;
-    std::string ploidy = "haploid";
     size_t input_k = 0;
     double read_length = -1;
     double sequencing_error = -1;
@@ -127,14 +126,14 @@ int countMain(int argc, char** argv) {
     double lambda_error = 1;
     std::string input_flanks_file;
     std::string output_name = "results.csv";
+    bool is_diploid = false;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:p:k:l:e:c:m:f:o:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:l:e:c:m:f:o:d", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case '1': arg >> input_reads_file1; break;
             case '2': arg >> input_reads_file2; break;
-            case 'p': arg >> ploidy; break;
             case 'k': arg >> input_k; break;
             case 'l': arg >> read_length; break;        // TODO: calculate from input reads files
             case 'e': arg >> sequencing_error; break;
@@ -142,6 +141,7 @@ int countMain(int argc, char** argv) {
             case 'm': arg >> lambda_error; break;
             case 'f': arg >> input_flanks_file; break;
             case 'o': arg >> output_name; break;
+            case 'd': is_diploid = true; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -155,11 +155,6 @@ int countMain(int argc, char** argv) {
 
     if (input_reads_file1.empty()) {
         fprintf(stderr, "No file for read sequences. One file must be specified for argument -1. Check parameters.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (ploidy != "haploid" && ploidy != "diploid") {
-        fprintf(stderr, "Ploidy must be either 'haploid' or 'diploid'. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -273,17 +268,22 @@ int countMain(int argc, char** argv) {
     // Print handy information
     //
 
-    fprintf(stderr, "input reads: %s", input_reads_file1.c_str());
+    fprintf(stderr, "Input reads: %s", input_reads_file1.c_str());
     fprintf(stderr, " %s", input_reads_file2.c_str());
-    fprintf(stderr, "\ninput alleles: %s\n", input_alleles_file.c_str());
-    fprintf(stderr, "input flank sequences: %s\n", input_flanks_file.c_str());
-    fprintf(stderr, "number of alleles: %zu\n", allele_names.size());
-    fprintf(stderr, "%s profiles used\n", ploidy.c_str());
-    fprintf(stderr, "input k value: %zu\n", input_k);
-    fprintf(stderr, "input coverage: %f X, sequencing error: %f \n", coverage, sequencing_error);
-    fprintf(stderr, "input lambda error: %f\n", lambda_error);
-    fprintf(stderr, "lambda calculated as: %f\n", lambda);
-    fprintf(stderr, "flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
+    fprintf(stderr, "\nInput alleles: %s\n", input_alleles_file.c_str());
+    fprintf(stderr, "Input flank sequences: %s\n", input_flanks_file.c_str());
+    fprintf(stderr, "Number of alleles: %zu\n", allele_names.size());
+    if (is_diploid == false) {
+        fprintf(stderr, "Haploid profiles used\n");
+    }
+    else if (is_diploid == true) {
+        fprintf(stderr, "Diploid profiles used\n");
+    }
+    fprintf(stderr, "Input k value: %zu\n", input_k);
+    fprintf(stderr, "Input coverage: %f X, sequencing error: %f \n", coverage, sequencing_error);
+    fprintf(stderr, "Input lambda error: %f\n", lambda_error);
+    fprintf(stderr, "Lambda calculated as: %f\n", lambda);
+    fprintf(stderr, "Flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
 
 
     //
@@ -298,7 +298,7 @@ int countMain(int argc, char** argv) {
     // Determine all possible genotypes if needed
     std::vector<std::pair<std::string, std::string>> genotypes;
 
-    if (ploidy == "diploid") {
+    if (is_diploid == true) {
         genotypes = pairwise_comparisons(allele_names, true);
         for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
             std::string name = iter->first + "/" + iter->second;
@@ -319,7 +319,7 @@ int countMain(int argc, char** argv) {
     }
 
     // Combine profiles for diploid genotypes if applicable
-    if (ploidy == "diploid") {
+    if (is_diploid == true) {
         for (auto iter1 = genotypes.begin(); iter1 != genotypes.end(); ++iter1) {
             kmer_count_map combined_alelle_map = allele_kmer_counts[iter1->first];
             for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
@@ -366,20 +366,19 @@ int countMain(int argc, char** argv) {
 
     std::map<std::string, double> all_scores;
 
-    if (ploidy == "haploid") {
+    if (is_diploid == false) {
         for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
             std::string a = *iter;
             all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
         }
     }
-    else if (ploidy == "diploid") {
+    else if (is_diploid == true) {
         for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
             std::string g = *iter;
             all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
         } 
     }
     
-
 
     //
     // Save output
