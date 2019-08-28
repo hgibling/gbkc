@@ -3,6 +3,8 @@ src/*.o
 test*
 *csv
 *txt
+*fa
 src/test*
 src/*csv
 src/*txt
+src/*fa
