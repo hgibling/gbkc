@@ -198,7 +198,9 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "       -1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
 "       -2       multi-fasta/q file of sequencing reads to score (second in pair)\n"
 "       -d       score diploid genotypes (if flag is not used, haploid scoring is performed)\n"
-"       -k       size of k-mers to use\n"
+"       -k       lower value of k-mer to use (default: 11)\n"
+"       -K       upper value of k-mer to use\n"
+"       -r       increment size between k-mer values (default: 4)\n"
 "       -l       read length\n"
 "       -e       sequencing error rate (between 0 and 1)\n"
 "       -c       sequencing coverage\n"
@@ -228,7 +230,9 @@ int distanceMain(int argc, char** argv) {
     std::string input_alleles_file;
     std::string input_reads_file1;
     std::string input_reads_file2;
-    size_t input_k = 0;
+    size_t lower_k = 11;
+    size_t upper_k = 0;
+    size_t increment_k = 4;
     double read_length = -1;
     double sequencing_error = -1;
     double coverage = -1;
@@ -239,13 +243,15 @@ int distanceMain(int argc, char** argv) {
     std::string output_name = "distance-results.csv";
     bool is_diploid = false;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:l:e:c:f:s:p:m:o:d", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:r:l:e:c:f:s:p:m:o:d", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case '1': arg >> input_reads_file1; break;
             case '2': arg >> input_reads_file2; break;
-            case 'k': arg >> input_k; break;
+            case 'k': arg >> lower_k; break;
+            case 'K': arg >> upper_k; break;
+            case 'r': arg >> increment_k; break;
             case 'l': arg >> read_length; break;
             case 'e': arg >> sequencing_error; break;
             case 'c': arg >> coverage; break;
@@ -276,8 +282,13 @@ int distanceMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    if (input_k == 0 || input_k > read_length) {
+    if (lower_k == 0 || lower_k > read_length || upper_k == 0 || upper_k > read_length) {
         fprintf(stderr, "Value of k must be non-zero and less than the read length. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (lower_k > upper_k || increment_k < 0 || increment_k > upper_k) {
+        fprintf(stderr, "Lower k value and k increment size must not be greater than upper k value. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -344,14 +355,17 @@ int distanceMain(int argc, char** argv) {
     else if (is_diploid == true) {
         fprintf(stderr, "Diploid profiles used\n");
     }
-    fprintf(stderr, "Input k value: %zu\n", input_k);
+    fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
     fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
     fprintf(stderr, "Input mean fragment length: %f, standard deviation: %f\n", fragment_length, fragment_stdev);
     fprintf(stderr, "Input penalty: %zu\n", input_penalty);
     fprintf(stderr, "Input scoring method: %s\n", method.c_str());
 
 
+    //
     // Determine all possible genotypes if needed
+    //
+
     std::vector<std::pair<std::string, std::string>> genotypes;
 
     if (is_diploid == true) {
@@ -360,66 +374,86 @@ int distanceMain(int argc, char** argv) {
 
 
     //
-    // Get k-mer positions for alleles
+    // Iterate over all values of k
     //
 
-    std::map<std::string, kmer_position_map> allele_positions;
-    for (size_t a = 0; a < alleles.size(); ++a) {
-        kmer_position_map single_allele_positions = kmer_positions(alleles[a].sequence, input_k);
-        allele_positions[alleles[a].name] = single_allele_positions;
+    // Get all values of k
+    std::vector<size_t> k_values;
+    size_t counter = lower_k;
+    while (counter < upper_k) {
+        k_values.push_back(counter);
+        counter += increment_k;
     }
+    k_values.push_back(upper_k);
 
 
-    //
-    // Get outer k-mer pairs for each read pair
-    //
-
-    // Assuming reads are in paired order in both lists
-    kmer_pairs_map read_pairs;
-    for (size_t r = 0; r < reads1.size(); ++r) {
-
-        // Get both first read kmer and reverse complement second read kmer, and reverse complement first read kmer
-        // and second read kmer, since we don't know orientation of the reads
-        std::pair<std::string, std::string> first_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, input_k, 0);
-        std::pair<std::string, std::string> second_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, input_k, 1);
-
-        read_pairs.insert({reads1[r].name, first_rc});
-        read_pairs.insert({reads1[r].name, second_rc});
-    }
+    // Iterate
+    for (size_t k = 0; k < k_values.size(); ++k) {
 
 
-    //
-    // Calculate distance scores for each allele or genotype
-    //
+        //
+        // Get k-mer positions for alleles
+        //
 
-    std::map<std::string, double> all_scores;
-
-    if (is_diploid == false) {
-        for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
-            std::string a = *iter;
-            all_scores[a] = allele_score_read_kmer_pairs(allele_positions[a], read_pairs, fragment_length, fragment_stdev, input_k, input_penalty, method);
+        std::map<std::string, kmer_position_map> allele_positions;
+        for (size_t a = 0; a < alleles.size(); ++a) {
+            kmer_position_map single_allele_positions = kmer_positions(alleles[a].sequence, k_values[k]);
+            allele_positions[alleles[a].name] = single_allele_positions;
         }
-    }
-    else if (is_diploid == true) {
-        for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
-            std::string genotype_name = iter->first + "/" + iter->second;
-            all_scores[genotype_name] = genotype_score_read_kmer_pairs(allele_positions[iter->first], allele_positions[iter->second], read_pairs, fragment_length, fragment_stdev, input_k, input_penalty, method);
+
+
+        //
+        // Get outer k-mer pairs for each read pair
+        //
+
+        // Assuming reads are in paired order in both lists
+        kmer_pairs_map read_pairs;
+        for (size_t r = 0; r < reads1.size(); ++r) {
+
+            // Get both first read kmer and reverse complement second read kmer, and reverse complement first read kmer
+            // and second read kmer, since we don't know orientation of the reads
+            std::pair<std::string, std::string> first_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, k_values[k], 0);
+            std::pair<std::string, std::string> second_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, k_values[k], 1);
+
+            read_pairs.insert({reads1[r].name, first_rc});
+            read_pairs.insert({reads1[r].name, second_rc});
         }
+
+
+        //
+        // Calculate distance scores for each allele or genotype
+        //
+
+        std::map<std::string, double> all_scores;
+
+        if (is_diploid == false) {
+            for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
+                std::string a = *iter;
+                all_scores[a] = allele_score_read_kmer_pairs(allele_positions[a], read_pairs, fragment_length, fragment_stdev, k_values[k], input_penalty, method);
+            }
+        }
+        else if (is_diploid == true) {
+            for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
+                std::string genotype_name = iter->first + "/" + iter->second;
+                all_scores[genotype_name] = genotype_score_read_kmer_pairs(allele_positions[iter->first], allele_positions[iter->second], read_pairs, fragment_length, fragment_stdev, k_values[k], input_penalty, method);
+            }
+        }
+
+
+        //
+        // Save output
+        //
+
+        FILE * output;
+        output = fopen(output_name.c_str(), "a");
+
+        for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
+            fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
+        }
+
+        fclose(output);
+
     }
-
-
-    //
-    // Save output
-    //
-
-    FILE * output;
-    output = fopen(output_name.c_str(), "w");
-
-    for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
-        fprintf(output, "%s,%f\n", iter->first.c_str(), iter->second);
-    }
-
-    fclose(output);
 
 
     //
