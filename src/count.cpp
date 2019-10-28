@@ -220,61 +220,7 @@ int countMain(int argc, char** argv) {
     // Get flank sequences
     std::vector<sequence_record> flanks = read_sequences_from_file(input_flanks_file);
 
-
-    //
-    // Calculate lambda
-    //
-
-    double lambda = calculate_lambda(read_length, input_k, coverage, sequencing_error);
-
-
-    //
-    // Calculate mean and median k-mer counts from flanking sequences
-    //
-
-    kmer_count_map combined_flanks_counts; 
-
-    // Iterate over each flank and combine
-    for (size_t f = 0; f < flanks.size(); ++f) {
-        kmer_count_map single_flank_kmer_counts = count_kmers(flanks[f].sequence, input_k);
-        if (f == 0) {
-            combined_flanks_counts = single_flank_kmer_counts;
-        }
-        else {
-            for (auto iter = single_flank_kmer_counts.begin(); iter != single_flank_kmer_counts.end(); ++iter) {
-                combined_flanks_counts[iter->first] += iter->second;
-            }
-        }
-    }
-
-    // Calculate mean and median k-mer counts
-
-    size_t sum_flank_kmer_counts = 0;
-    double mean_flank_kmer_counts;
-
-    std::vector<size_t> flank_counts_vector;
-    double median_flank_kmer_counts;
-
-    for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
-        sum_flank_kmer_counts += iter->second;
-        flank_counts_vector.push_back(iter->second);
-    }
-
-    mean_flank_kmer_counts = sum_flank_kmer_counts / combined_flanks_counts.size();
-
-    std::sort(flank_counts_vector.begin(), flank_counts_vector.end());
-    size_t median_position = flank_counts_vector.size() / 2;
-        // is rounded down if vector size is odd -- correct position for 0-based indexing
-        // need to adjust if even
-
-    if ((flank_counts_vector.size() % 2) == 0) {
-        median_flank_kmer_counts = (flank_counts_vector[median_position] + flank_counts_vector[median_position - 1]) / 2; 
-    }
-    else {
-        median_flank_kmer_counts = flank_counts_vector[median_position];
-    }
-
-
+    
     //
     // Print handy information
     //
@@ -290,13 +236,11 @@ int countMain(int argc, char** argv) {
     else if (is_diploid == true) {
         fprintf(stderr, "Diploid profiles used\n");
     }
-    fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
-    fprintf(stderr, "Input coverage: %f X, sequencing error: %f \n", coverage, sequencing_error);
+        fprintf(stderr, "Input coverage: %f X, sequencing error: %f \n", coverage, sequencing_error);
     fprintf(stderr, "Input lambda error: %f\n", lambda_error);
-    fprintf(stderr, "Lambda calculated as: %f\n", lambda);
-    fprintf(stderr, "Flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
+    fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
 
-    
+
     //
     // Determine all possible genotypes if needed
     //
@@ -312,7 +256,7 @@ int countMain(int argc, char** argv) {
         }
     }
 
-    
+
     //
     // Iterate over all values of k
     //
@@ -325,12 +269,75 @@ int countMain(int argc, char** argv) {
         k_values.push_back(counter);
         counter += increment_k;
     }
-    
+
     k_values.push_back(upper_k);
 
 
     // Iterate
     for (size_t k = 0; k < k_values.size(); ++k) {
+        
+
+        //
+        // Calculate lambda
+        //
+
+        double lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
+
+
+        //
+        // Calculate mean and median k-mer counts from flanking sequences
+        //
+
+        kmer_count_map combined_flanks_counts; 
+
+        // Iterate over each flank and combine
+        for (size_t f = 0; f < flanks.size(); ++f) {
+            kmer_count_map single_flank_kmer_counts = count_kmers(flanks[f].sequence, k_values[k]);
+            if (f == 0) {
+                combined_flanks_counts = single_flank_kmer_counts;
+            }
+            else {
+                for (auto iter = single_flank_kmer_counts.begin(); iter != single_flank_kmer_counts.end(); ++iter) {
+                    combined_flanks_counts[iter->first] += iter->second;
+                }
+            }
+        }
+
+        // Calculate mean and median k-mer counts
+
+        size_t sum_flank_kmer_counts = 0;
+        double mean_flank_kmer_counts;
+
+        std::vector<size_t> flank_counts_vector;
+        double median_flank_kmer_counts;
+
+        for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
+            sum_flank_kmer_counts += iter->second;
+            flank_counts_vector.push_back(iter->second);
+        }
+
+        mean_flank_kmer_counts = sum_flank_kmer_counts / combined_flanks_counts.size();
+
+        std::sort(flank_counts_vector.begin(), flank_counts_vector.end());
+        size_t median_position = flank_counts_vector.size() / 2;
+            // is rounded down if vector size is odd -- correct position for 0-based indexing
+            // need to adjust if even
+
+        if ((flank_counts_vector.size() % 2) == 0) {
+            median_flank_kmer_counts = (flank_counts_vector[median_position] + flank_counts_vector[median_position - 1]) / 2; 
+        }
+        else {
+            median_flank_kmer_counts = flank_counts_vector[median_position];
+        }
+
+
+        //
+        // Print more handy information
+        //
+
+        fprintf(stderr, "Information for k = %zu\n", k_values[k]);
+        fprintf(stderr, "Lambda calculated as: %f\n", lambda);
+        fprintf(stderr, "Flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
 
 
         //
