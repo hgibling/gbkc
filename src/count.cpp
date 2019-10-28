@@ -91,7 +91,9 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -1       multi-fasta/q file of sequencing reads to score (first in pair)\n"
 "       -2       [optional] multi-fasta/q file of sequencing reads to score (second in pair)\n"
 "       -d       score diploid genotypes (if flag is not used, haploid scoring is performed)\n"
-"       -k       size of k-mers to use\n"
+"       -k       lower value of k-mer to use (default: 11)\n"
+"       -K       upper value of k-mer to use\n"
+"       -r       increment size between k-mer values (default: 4)\n"
 "       -l       read length\n"
 "       -e       sequencing error rate\n"
 "       -c       sequencing coverage\n"
@@ -119,22 +121,26 @@ int countMain(int argc, char** argv) {
     std::string input_alleles_file;
     std::string input_reads_file1;
     std::string input_reads_file2;
-    size_t input_k = 0;
+    size_t lower_k = 11;
+    size_t upper_k = 0;
+    size_t increment_k = 4;
     double read_length = -1;
     double sequencing_error = -1;
     double coverage = -1;
     double lambda_error = 1;
     std::string input_flanks_file;
-    std::string output_name = "results.csv";
+    std::string output_name = "count-results.csv";
     bool is_diploid = false;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:l:e:c:m:f:o:d", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:r:l:e:c:m:f:o:d", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case '1': arg >> input_reads_file1; break;
             case '2': arg >> input_reads_file2; break;
-            case 'k': arg >> input_k; break;
+            case 'k': arg >> lower_k; break;
+            case 'K': arg >> upper_k; break;
+            case 'r': arg >> increment_k; break;
             case 'l': arg >> read_length; break;        // TODO: calculate from input reads files
             case 'e': arg >> sequencing_error; break;
             case 'c': arg >> coverage; break;
@@ -163,8 +169,13 @@ int countMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    if (input_k == 0 || input_k > read_length) {
+    if (lower_k == 0 || lower_k > read_length || upper_k == 0 || upper_k > read_length) {
         fprintf(stderr, "Value of k must be non-zero and less than the read length. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (lower_k > upper_k || increment_k < 0 || increment_k > upper_k) {
+        fprintf(stderr, "Lower k value and k increment size must not be greater than upper k value. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -279,23 +290,18 @@ int countMain(int argc, char** argv) {
     else if (is_diploid == true) {
         fprintf(stderr, "Diploid profiles used\n");
     }
-    fprintf(stderr, "Input k value: %zu\n", input_k);
+    fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
     fprintf(stderr, "Input coverage: %f X, sequencing error: %f \n", coverage, sequencing_error);
     fprintf(stderr, "Input lambda error: %f\n", lambda_error);
     fprintf(stderr, "Lambda calculated as: %f\n", lambda);
     fprintf(stderr, "Flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
 
-
+    
     //
-    // Count k-mers in alleles/genotypes
-    //
-
-    // All k-mers in each allele/genotype
-    std::map<std::string, kmer_count_map> allele_kmer_counts; 
-    std::map<std::string, kmer_count_map> genotype_kmer_counts; 
-    std::set<std::string> genotype_names;
-
     // Determine all possible genotypes if needed
+    //
+
+    std::set<std::string> genotype_names;
     std::vector<std::pair<std::string, std::string>> genotypes;
 
     if (is_diploid == true) {
@@ -306,92 +312,124 @@ int countMain(int argc, char** argv) {
         }
     }
 
-    // Union of k-mers from all alleles
-    std::unordered_set<std::string> allele_kmers;
+    
+    //
+    // Iterate over all values of k
+    //
 
-    // Iterate over each allele
-    for (size_t a = 0; a < alleles.size(); ++a) {
-        std::map<std::string, size_t> single_allele_kmer_counts = count_kmers(alleles[a].sequence, input_k);
-        allele_kmer_counts[alleles[a].name.c_str()] = single_allele_kmer_counts;
-        for (auto iter = single_allele_kmer_counts.begin(); iter != single_allele_kmer_counts.end(); ++iter) {
-            allele_kmers.insert(iter->first);
-        }
+    // Get all values of k
+    std::vector<size_t> k_values;
+
+    size_t counter = lower_k;
+    while (counter < upper_k) {
+        k_values.push_back(counter);
+        counter += increment_k;
     }
+    
+    k_values.push_back(upper_k);
 
-    // Combine profiles for diploid genotypes if applicable
-    if (is_diploid == true) {
-        for (auto iter1 = genotypes.begin(); iter1 != genotypes.end(); ++iter1) {
-            kmer_count_map combined_alelle_map = allele_kmer_counts[iter1->first];
-            for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
-                combined_alelle_map[iter2->first] += iter2->second;
+
+    // Iterate
+    for (size_t k = 0; k < k_values.size(); ++k) {
+
+
+        //
+        // Count k-mers in alleles/genotypes
+        //
+
+        // All k-mers in each allele/genotype
+        std::map<std::string, kmer_count_map> allele_kmer_counts; 
+        std::map<std::string, kmer_count_map> genotype_kmer_counts; 
+
+
+        // Union of k-mers from all alleles
+        std::unordered_set<std::string> allele_kmers;
+
+        // Iterate over each allele
+        for (size_t a = 0; a < alleles.size(); ++a) {
+            std::map<std::string, size_t> single_allele_kmer_counts = count_kmers(alleles[a].sequence, k_values[k]);
+            allele_kmer_counts[alleles[a].name.c_str()] = single_allele_kmer_counts;
+            for (auto iter = single_allele_kmer_counts.begin(); iter != single_allele_kmer_counts.end(); ++iter) {
+                allele_kmers.insert(iter->first);
             }
-            std::string genotype_name = iter1->first + "/" + iter1->second;
-            genotype_kmer_counts[genotype_name] = combined_alelle_map;
         }
-    }
 
-
-    //
-    // Count k-mers in reads
-    //
-
-    // k-mers and counts for each read
-    std::map<std::string, kmer_count_map> each_read_kmer_counts;
-
-    // k-mers and counts across all reads
-    kmer_count_map all_reads_kmer_counts;
-
-    // Iterate over each read
-    for (size_t r = 0; r < reads1.size(); ++r) {
-        std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads1[r].sequence, input_k);
-        each_read_kmer_counts[reads1[r].name.c_str()] = single_read_kmer_counts;
-        for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
-            all_reads_kmer_counts[iter->first] += iter->second;
+        // Combine profiles for diploid genotypes if applicable
+        if (is_diploid == true) {
+            for (auto iter1 = genotypes.begin(); iter1 != genotypes.end(); ++iter1) {
+                kmer_count_map combined_alelle_map = allele_kmer_counts[iter1->first];
+                for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
+                    combined_alelle_map[iter2->first] += iter2->second;
+                }
+                std::string genotype_name = iter1->first + "/" + iter1->second;
+                genotype_kmer_counts[genotype_name] = combined_alelle_map;
+            }
         }
-    }
-    if (!input_reads_file2.empty()) {
-        for (size_t r = 0; r < reads2.size(); ++r) {
-            std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, input_k);
-            each_read_kmer_counts[reads2[r].name.c_str()] = single_read_kmer_counts;
+
+
+        //
+        // Count k-mers in reads
+        //
+
+        // k-mers and counts for each read
+        std::map<std::string, kmer_count_map> each_read_kmer_counts;
+
+        // k-mers and counts across all reads
+        kmer_count_map all_reads_kmer_counts;
+
+        // Iterate over each read
+        for (size_t r = 0; r < reads1.size(); ++r) {
+            std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads1[r].sequence, k_values[k]);
+            each_read_kmer_counts[reads1[r].name.c_str()] = single_read_kmer_counts;
             for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
                 all_reads_kmer_counts[iter->first] += iter->second;
             }
-        }  
-    }   
-
-
-    //
-    // Score k-mer count profiles for each allele/genotype
-    //
-
-    std::map<std::string, double> all_scores;
-
-    if (is_diploid == false) {
-        for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
-            std::string a = *iter;
-            all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
         }
+        if (!input_reads_file2.empty()) {
+            for (size_t r = 0; r < reads2.size(); ++r) {
+                std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, k_values[k]);
+                each_read_kmer_counts[reads2[r].name.c_str()] = single_read_kmer_counts;
+                for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
+                    all_reads_kmer_counts[iter->first] += iter->second;
+                }
+            }  
+        }   
+
+
+        //
+        // Score k-mer count profiles for each allele/genotype
+        //
+
+        std::map<std::string, double> all_scores;
+
+        if (is_diploid == false) {
+            for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
+                std::string a = *iter;
+                all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
+            }
+        }
+        else if (is_diploid == true) {
+            for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
+                std::string g = *iter;
+                all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
+            } 
+        }
+        
+
+        //
+        // Save output
+        //
+
+        FILE * output;
+        output = fopen(output_name.c_str(), "w");
+
+        for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
+            fprintf(output, "%s,%f\n", iter->first.c_str(), iter->second);
+        }
+
+        fclose(output);
+
     }
-    else if (is_diploid == true) {
-        for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
-            std::string g = *iter;
-            all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
-        } 
-    }
-    
-
-    //
-    // Save output
-    //
-
-    FILE * output;
-    output = fopen(output_name.c_str(), "w");
-
-    for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
-        fprintf(output, "%s,%f\n", iter->first.c_str(), iter->second);
-    }
-
-    fclose(output);
 
 
     //
