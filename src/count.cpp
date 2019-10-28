@@ -431,7 +431,7 @@ int countMain(int argc, char** argv) {
         output = fopen(output_name.c_str(), "w");
 
         for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
-            fprintf(output, "%s,%f\n", iter->first.c_str(), iter->second);
+            fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
         }
 
         fclose(output);
