@@ -379,11 +379,13 @@ int distanceMain(int argc, char** argv) {
 
     // Get all values of k
     std::vector<size_t> k_values;
+
     size_t counter = lower_k;
     while (counter < upper_k) {
         k_values.push_back(counter);
         counter += increment_k;
     }
+    
     k_values.push_back(upper_k);
 
 
