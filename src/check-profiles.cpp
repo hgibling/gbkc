@@ -170,7 +170,8 @@ static const char *CHECK_PROFILES_USAGE_MESSAGE =
 "       -l       lower range of k values to be checked (default: 3)\n"
 "       -u       upper range of k values to be checked (should not be greater than the read length)\n"
 "       -d       check diploid genotypes (if flag is not used, haploid check is performed)\n"
-"       -v       verbose printout of comparisons when profiles are not identical (true or false; default: false)\n";
+"       -v       verbose printout of comparisons when profiles are not identical\n"
+"       -p       print individual k-mer count profiles instead of comparisons\n";
 
 
 //
@@ -190,14 +191,14 @@ int checkprofilesMain(int argc, char** argv) {
     //
 
     std::string input_alleles_file;
-    int lower_range = 3;
-    int upper_range = -1;
-    std::string verbose = "false";
+    size_t lower_range = 3;
+    size_t upper_range = 0;
     bool is_diploid = false;
     bool is_verbose = false;
+    bool is_profiles = false;
 
 
-    for (char c; (c = getopt_long(argc, argv, "a:l:u:pv", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:l:u:dvp", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -205,6 +206,7 @@ int checkprofilesMain(int argc, char** argv) {
             case 'u': arg >> upper_range; break;
             case 'd': is_diploid = true; break;
             case 'v': is_verbose = true; break;
+            case 'p': is_profiles = true; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -249,7 +251,8 @@ int checkprofilesMain(int argc, char** argv) {
     if (is_diploid == false) {
         allele_pairs = pairwise_comparisons(allele_names, false);
     }
-    else if (is_diploid == true) {
+
+    else if (is_diploid == true && is_profiles == false) {
         genotypes = pairwise_comparisons(allele_names, true);
         std::set<std::string> genotype_names;
         for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
@@ -260,9 +263,9 @@ int checkprofilesMain(int argc, char** argv) {
     }
 
 
-    // Iterate over all possible values of k given read length l
-    for (int k = lower_range; k < upper_range + 1; ++k) {
-        printf("Testing k = %d... \n", k);
+    // Iterate over all possible values of k given length l
+    for (size_t k = lower_range; k < upper_range + 1; ++k) {
+        fprintf(stderr, "Testing k = %zu... \n", k);
 
         // All k-mers in each allele or genotype
         std::map<std::string, kmer_count_map> allele_kmer_counts; 
@@ -286,54 +289,80 @@ int checkprofilesMain(int argc, char** argv) {
             }
         }
 
-        // Check if k-mer count profiles are unique amongst all alleles
-        std::vector<std::pair<std::string, std::string>> identical_profiles;
+        if (is_profiles == true) {
 
-        // k-mer comparison map
-        std::map<std::string, kmer_comparison_map> kmer_comparisons;
-
-        if (is_diploid == false) {
-            for (auto iter = allele_pairs.begin(); iter != allele_pairs.end(); ++iter) {
-                bool allele_vs_allele = compare_profiles(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
-                if (allele_vs_allele == 1) {
-                    identical_profiles.push_back(std::make_pair(iter->first, iter->second));
-                }
-                if (is_verbose == true && allele_vs_allele == 0) {
-                    std::string compared_alleles = iter->first + "," + iter->second;
-                    kmer_comparisons[compared_alleles] = kmer_differences(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
+            if (is_diploid == true) {
+                for (auto iter1 = genotype_kmer_counts.begin(); iter1 != genotype_kmer_counts.end(); ++iter1) {
+                    for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
+                        printf("%zu,%s,%s,%zu\n", k, iter1->first.c_str(), iter2->first.c_str(), iter2->second);
+                    }
                 }
             }
-        }
-        else if (is_diploid == true) {
-            for (auto iter = genotype_pairs.begin(); iter != genotype_pairs.end(); ++iter) {
-                bool genotype_vs_genotype = compare_profiles(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
-                if (genotype_vs_genotype == 1) {
-                    identical_profiles.push_back(std::make_pair(iter->first, iter->second));
-                }
-                if (is_verbose == true && genotype_vs_genotype == 0) {
-                    std::string compared_genotypes = iter->first + "," + iter->second;
-                    kmer_comparisons[compared_genotypes] = kmer_differences(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
-                }
+
+            else if (is_diploid == false) {
+               for (auto iter1 = allele_kmer_counts.begin(); iter1 != allele_kmer_counts.end(); ++iter1) {
+                    for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
+                        printf("%zu,%s,%s,%zu\n", k, iter1->first.c_str(), iter2->first.c_str(), iter2->second);
+                    }
+                } 
             }
         }
 
-        if (is_verbose == false) {
-            if (identical_profiles.size() > 0) {
-                printf("Some alleles had identical k-mer count profiles:\n");
-                for (auto iter = identical_profiles.begin(); iter != identical_profiles.end(); ++iter) {
-                    printf("%s and %s\n", iter->first.c_str(), iter->second.c_str());
+        else if (is_profiles == false) {
+
+            printf("Testing k = %zu... \n", k);
+
+            // Check if k-mer count profiles are unique amongst all alleles
+            std::vector<std::pair<std::string, std::string>> identical_profiles;
+
+            // k-mer comparison map
+            std::map<std::string, kmer_comparison_map> kmer_comparisons;
+
+            if (is_diploid == false) {
+                for (auto iter = allele_pairs.begin(); iter != allele_pairs.end(); ++iter) {
+                    bool allele_vs_allele = compare_profiles(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
+                    if (allele_vs_allele == 1) {
+                        identical_profiles.push_back(std::make_pair(iter->first, iter->second));
+                    }
+                    if (is_verbose == true && allele_vs_allele == 0) {
+                        std::string compared_alleles = iter->first + "," + iter->second;
+                        kmer_comparisons[compared_alleles] = kmer_differences(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
+                    }
+                }
+            }
+
+            else if (is_diploid == true) {
+                for (auto iter = genotype_pairs.begin(); iter != genotype_pairs.end(); ++iter) {
+                    bool genotype_vs_genotype = compare_profiles(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
+                    if (genotype_vs_genotype == 1) {
+                        identical_profiles.push_back(std::make_pair(iter->first, iter->second));
+                    }
+                    if (is_verbose == true && genotype_vs_genotype == 0) {
+                        std::string compared_genotypes = iter->first + "," + iter->second;
+                        kmer_comparisons[compared_genotypes] = kmer_differences(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
+                    }
+                }
+            }
+
+            if (is_verbose == false) {
+                if (identical_profiles.size() > 0) {
+                    printf("Some alleles had identical k-mer count profiles:\n");
+                    for (auto iter = identical_profiles.begin(); iter != identical_profiles.end(); ++iter) {
+                        printf("%s and %s\n", iter->first.c_str(), iter->second.c_str());
+                    }
+                } 
+                else {
+                    printf("All k-mer count profiles are unique\n");
                 }
             } 
-            else {
-                printf("All k-mer count profiles are unique\n");
-            }
-        } 
-        else if (is_verbose == true) {
-            for (auto iter1 = kmer_comparisons.begin(); iter1 != kmer_comparisons.end(); ++iter1) {
-                for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
-                    printf("%s,%s,%i\n", iter1->first.c_str(), iter2->first.c_str(), iter2->second);
-                }
 
+            else if (is_verbose == true) {
+                for (auto iter1 = kmer_comparisons.begin(); iter1 != kmer_comparisons.end(); ++iter1) {
+                    for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
+                        printf("%s,%s,%i\n", iter1->first.c_str(), iter2->first.c_str(), iter2->second);
+                    }
+
+                }
             }
         }
 
