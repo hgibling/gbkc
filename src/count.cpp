@@ -198,6 +198,11 @@ int countMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
+    if (num_threads <= 0) {
+        fprintf(stderr, "Number of threads must be greater than 0. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
 
     //
     // Read files
@@ -229,6 +234,7 @@ int countMain(int argc, char** argv) {
     // Print handy information
     //
 
+    fprintf(stderr, "Number of threads used: %zu\n", num_threads);
     fprintf(stderr, "Input reads: %s", input_reads_file1.c_str());
     fprintf(stderr, " %s", input_reads_file2.c_str());
     fprintf(stderr, "\nInput alleles: %s\n", input_alleles_file.c_str());
@@ -240,7 +246,7 @@ int countMain(int argc, char** argv) {
     else if (is_diploid == true) {
         fprintf(stderr, "Diploid profiles used\n");
     }
-        fprintf(stderr, "Input coverage: %f X, sequencing error: %f \n", coverage, sequencing_error);
+        fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
     fprintf(stderr, "Input lambda error: %f\n", lambda_error);
     fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
 
