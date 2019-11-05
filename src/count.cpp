@@ -258,7 +258,7 @@ int countMain(int argc, char** argv) {
     std::set<std::string> genotype_names;
     std::vector<std::pair<std::string, std::string>> genotypes;
 
-    if (is_diploid == true) {
+    if (is_diploid) {
         genotypes = pairwise_comparisons(allele_names, true);
         for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
             std::string name = iter->first + "/" + iter->second;
@@ -377,7 +377,7 @@ int countMain(int argc, char** argv) {
         }
 
         // Combine profiles for diploid genotypes if applicable
-        if (is_diploid == true) {
+        if (is_diploid) {
             for (auto iter1 = genotypes.begin(); iter1 != genotypes.end(); ++iter1) {
                 kmer_count_map combined_alelle_map = allele_kmer_counts[iter1->first];
                 for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
@@ -424,13 +424,13 @@ int countMain(int argc, char** argv) {
 
         std::map<std::string, double> all_scores;
 
-        if (is_diploid == false) {
+        if (!is_diploid) {
             for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
                 std::string a = *iter;
                 all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
             }
         }
-        else if (is_diploid == true) {
+        else if (is_diploid) {
             for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
                 std::string g = *iter;
                 all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
