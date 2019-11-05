@@ -6,6 +6,7 @@
 #include <iostream>
 #include <map>
 #include <math.h>
+#include <omp.h>
 #include <set>
 #include <sstream>
 #include <stdint.h>
@@ -99,7 +100,8 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -c       sequencing coverage\n"
 "       -m       error rate for lambda (default: 1)\n"
 "       -f       multi-fasta file of the two flanking sequences surrounding region of interest\n"
-"       -o       output file name (default: results.csv)\n";
+"       -o       output file name (default: results.csv)\n"
+"       -t       number of threads (default: 1)\n";
 
 
 //
@@ -131,8 +133,9 @@ int countMain(int argc, char** argv) {
     std::string input_flanks_file;
     std::string output_name = "count-results.csv";
     bool is_diploid = false;
+    size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:r:l:e:c:m:f:o:d", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:r:l:e:c:m:f:o:dt:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -148,6 +151,7 @@ int countMain(int argc, char** argv) {
             case 'f': arg >> input_flanks_file; break;
             case 'o': arg >> output_name; break;
             case 'd': is_diploid = true; break;
+            case 't': arg >> num_threads; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -273,7 +277,12 @@ int countMain(int argc, char** argv) {
     k_values.push_back(upper_k);
 
 
+    FILE * output;
+    output = fopen(output_name.c_str(), "w");
+
     // Iterate
+    omp_set_num_threads(num_threads);
+    #pragma omp parallel for
     for (size_t k = 0; k < k_values.size(); ++k) {
         
 
@@ -427,17 +436,15 @@ int countMain(int argc, char** argv) {
         // Save output
         //
 
-        FILE * output;
-        output = fopen(output_name.c_str(), "w");
-
-        for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
-            fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
+        #pragma omp critical 
+        {
+            for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
+                fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
+            }
         }
-
-        fclose(output);
-
     }
 
+    fclose(output);
 
     //
     // Finished

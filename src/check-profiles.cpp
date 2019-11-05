@@ -252,7 +252,7 @@ int checkprofilesMain(int argc, char** argv) {
         allele_pairs = pairwise_comparisons(allele_names, false);
     }
 
-    else if (is_diploid == true && is_profiles == false) {
+    else if (is_diploid == true) {
         genotypes = pairwise_comparisons(allele_names, true);
         std::set<std::string> genotype_names;
         for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {

@@ -1,4 +1,4 @@
-FLAGS=-Wall -g -O3 -std=c++11
+FLAGS=-Wall -g -O3 -std=c++11 -fopenmp
 
 %.o: %.cpp
 	g++ $(FLAGS) -c $^
