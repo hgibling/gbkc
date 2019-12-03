@@ -201,7 +201,7 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "       -d       score diploid genotypes (if flag is not used, haploid scoring is performed)\n"
 "       -k       lower value of k-mer to use (default: 11)\n"
 "       -K       upper value of k-mer to use\n"
-"       -r       increment size between k-mer values (default: 4)\n"
+"       -i       increment size between k-mer values (default: 4)\n"
 "       -l       read length\n"
 "       -e       sequencing error rate (between 0 and 1)\n"
 "       -c       sequencing coverage\n"
@@ -246,7 +246,7 @@ int distanceMain(int argc, char** argv) {
     bool is_diploid = false;
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:r:l:e:c:f:s:p:m:o:dt:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:f:s:p:m:o:dt:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -254,7 +254,7 @@ int distanceMain(int argc, char** argv) {
             case '2': arg >> input_reads_file2; break;
             case 'k': arg >> lower_k; break;
             case 'K': arg >> upper_k; break;
-            case 'r': arg >> increment_k; break;
+            case 'i': arg >> increment_k; break;
             case 'l': arg >> read_length; break;
             case 'e': arg >> sequencing_error; break;
             case 'c': arg >> coverage; break;
