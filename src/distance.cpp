@@ -7,6 +7,7 @@
 #include <map>
 #include <math.h>
 #include <numeric>
+#include <omp.h>
 #include <set>
 #include <sstream>
 #include <stdint.h>
@@ -208,7 +209,8 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "       -s       standard deviation of fragment length\n"
 "       -p       penalty fragment length when k-mer pairs aren't observed in an allele (default: 10)\n"
 "       -m       method for summarizing scores when kmer pairs occur more than once in an allele\n"
-"       -o       output file name (default: results.csv)\n";
+"       -o       output file name (default: results.csv)\n"
+"       -t       number of threads (default: 1)\n";
 
 
 //
@@ -242,8 +244,9 @@ int distanceMain(int argc, char** argv) {
     std::string method;
     std::string output_name = "distance-results.csv";
     bool is_diploid = false;
+    size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:r:l:e:c:f:s:p:m:o:d", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:r:l:e:c:f:s:p:m:o:dt:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -261,6 +264,7 @@ int distanceMain(int argc, char** argv) {
             case 'm': arg >> method; break;
             case 'o': arg >> output_name; break;
             case 'd': is_diploid = true; break;
+            case 't': arg >> num_threads; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -317,6 +321,11 @@ int distanceMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
+    if (num_threads <= 0) {
+        fprintf(stderr, "Number of threads must be greater than 0. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
 
     //
     // Read files
@@ -346,6 +355,7 @@ int distanceMain(int argc, char** argv) {
     // Print handy information
     //
 
+    fprintf(stderr, "Number of threads used: %zu\n", num_threads);
     fprintf(stderr, "Input reads: %s and %s\n", input_reads_file1.c_str(), input_reads_file2.c_str());
     fprintf(stderr, "Input alleles: %s\n", input_alleles_file.c_str());
     fprintf(stderr, "Number of alleles: %zu\n", allele_names.size());
@@ -388,8 +398,14 @@ int distanceMain(int argc, char** argv) {
     
     k_values.push_back(upper_k);
 
+    // Set up output
+    FILE * output;
+    output = fopen(output_name.c_str(), "w");
+
 
     // Iterate
+    omp_set_num_threads(num_threads);
+    #pragma omp parallel for
     for (size_t k = 0; k < k_values.size(); ++k) {
 
 
@@ -446,16 +462,15 @@ int distanceMain(int argc, char** argv) {
         // Save output
         //
 
-        FILE * output;
-        output = fopen(output_name.c_str(), "a");
-
-        for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
-            fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
+        #pragma omp critical
+        {
+            for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
+                fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
+            }
         }
-
-        fclose(output);
-
     }
+
+    fclose(output);
 
 
     //
