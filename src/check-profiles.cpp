@@ -248,11 +248,11 @@ int checkprofilesMain(int argc, char** argv) {
     std::vector<std::pair<std::string, std::string>> genotype_pairs;
     std::vector<std::pair<std::string, std::string>> genotypes;
 
-    if (is_diploid == false) {
+    if (!is_diploid) {
         allele_pairs = pairwise_comparisons(allele_names, false);
     }
 
-    else if (is_diploid == true) {
+    else if (is_diploid) {
         genotypes = pairwise_comparisons(allele_names, true);
         std::set<std::string> genotype_names;
         for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
@@ -278,7 +278,7 @@ int checkprofilesMain(int argc, char** argv) {
         }
 
         // Combine profiles for diploid genotypes if applicable
-        if (is_diploid == true) {
+        if (is_diploid) {
             for (auto iter1 = genotypes.begin(); iter1 != genotypes.end(); ++iter1) {
                 kmer_count_map combined_alelle_map = allele_kmer_counts[iter1->first];
                 for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
@@ -289,9 +289,9 @@ int checkprofilesMain(int argc, char** argv) {
             }
         }
 
-        if (is_profiles == true) {
+        if (is_profiles) {
 
-            if (is_diploid == true) {
+            if (is_diploid) {
                 for (auto iter1 = genotype_kmer_counts.begin(); iter1 != genotype_kmer_counts.end(); ++iter1) {
                     for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
                         printf("%zu,%s,%s,%zu\n", k, iter1->first.c_str(), iter2->first.c_str(), iter2->second);
@@ -299,7 +299,7 @@ int checkprofilesMain(int argc, char** argv) {
                 }
             }
 
-            else if (is_diploid == false) {
+            else if (!is_diploid) {
                for (auto iter1 = allele_kmer_counts.begin(); iter1 != allele_kmer_counts.end(); ++iter1) {
                     for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
                         printf("%zu,%s,%s,%zu\n", k, iter1->first.c_str(), iter2->first.c_str(), iter2->second);
@@ -308,7 +308,7 @@ int checkprofilesMain(int argc, char** argv) {
             }
         }
 
-        else if (is_profiles == false) {
+        else if (!is_profiles) {
 
             printf("Testing k = %zu... \n", k);
 
@@ -318,7 +318,7 @@ int checkprofilesMain(int argc, char** argv) {
             // k-mer comparison map
             std::map<std::string, kmer_comparison_map> kmer_comparisons;
 
-            if (is_diploid == false) {
+            if (!is_diploid) {
                 for (auto iter = allele_pairs.begin(); iter != allele_pairs.end(); ++iter) {
                     bool allele_vs_allele = compare_profiles(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
                     if (allele_vs_allele == 1) {
@@ -331,7 +331,7 @@ int checkprofilesMain(int argc, char** argv) {
                 }
             }
 
-            else if (is_diploid == true) {
+            else if (is_diploid) {
                 for (auto iter = genotype_pairs.begin(); iter != genotype_pairs.end(); ++iter) {
                     bool genotype_vs_genotype = compare_profiles(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
                     if (genotype_vs_genotype == 1) {
@@ -344,7 +344,7 @@ int checkprofilesMain(int argc, char** argv) {
                 }
             }
 
-            if (is_verbose == false) {
+            if (!is_verbose) {
                 if (identical_profiles.size() > 0) {
                     printf("Some alleles had identical k-mer count profiles:\n");
                     for (auto iter = identical_profiles.begin(); iter != identical_profiles.end(); ++iter) {
@@ -356,7 +356,7 @@ int checkprofilesMain(int argc, char** argv) {
                 }
             } 
 
-            else if (is_verbose == true) {
+            else if (is_verbose) {
                 for (auto iter1 = kmer_comparisons.begin(); iter1 != kmer_comparisons.end(); ++iter1) {
                     for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
                         printf("%s,%s,%i\n", iter1->first.c_str(), iter2->first.c_str(), iter2->second);

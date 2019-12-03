@@ -359,10 +359,10 @@ int distanceMain(int argc, char** argv) {
     fprintf(stderr, "Input reads: %s and %s\n", input_reads_file1.c_str(), input_reads_file2.c_str());
     fprintf(stderr, "Input alleles: %s\n", input_alleles_file.c_str());
     fprintf(stderr, "Number of alleles: %zu\n", allele_names.size());
-    if (is_diploid == false) {
+    if (!is_diploid) {
         fprintf(stderr, "Haploid profiles used\n");
     }
-    else if (is_diploid == true) {
+    else if (is_diploid) {
         fprintf(stderr, "Diploid profiles used\n");
     }
     fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
@@ -378,7 +378,7 @@ int distanceMain(int argc, char** argv) {
 
     std::vector<std::pair<std::string, std::string>> genotypes;
 
-    if (is_diploid == true) {
+    if (is_diploid) {
         genotypes = pairwise_comparisons(allele_names, true);
     }
 
@@ -444,13 +444,13 @@ int distanceMain(int argc, char** argv) {
 
         std::map<std::string, double> all_scores;
 
-        if (is_diploid == false) {
+        if (!is_diploid) {
             for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
                 std::string a = *iter;
                 all_scores[a] = allele_score_read_kmer_pairs(allele_positions[a], read_pairs, fragment_length, fragment_stdev, k_values[k], input_penalty, method);
             }
         }
-        else if (is_diploid == true) {
+        else if (is_diploid) {
             for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
                 std::string genotype_name = iter->first + "/" + iter->second;
                 all_scores[genotype_name] = genotype_score_read_kmer_pairs(allele_positions[iter->first], allele_positions[iter->second], read_pairs, fragment_length, fragment_stdev, k_values[k], input_penalty, method);

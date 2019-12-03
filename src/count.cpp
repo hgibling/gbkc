@@ -240,10 +240,10 @@ int countMain(int argc, char** argv) {
     fprintf(stderr, "\nInput alleles: %s\n", input_alleles_file.c_str());
     fprintf(stderr, "Input flank sequences: %s\n", input_flanks_file.c_str());
     fprintf(stderr, "Number of alleles: %zu\n", allele_names.size());
-    if (is_diploid == false) {
+    if (!is_diploid) {
         fprintf(stderr, "Haploid profiles used\n");
     }
-    else if (is_diploid == true) {
+    else if (is_diploid) {
         fprintf(stderr, "Diploid profiles used\n");
     }
         fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
@@ -451,6 +451,7 @@ int countMain(int argc, char** argv) {
     }
 
     fclose(output);
+
 
     //
     // Finished
