@@ -357,6 +357,7 @@ int checkprofilesMain(int argc, char** argv) {
             } 
 
             else if (is_verbose) {
+                // Output is second profile - first profile
                 for (auto iter1 = kmer_comparisons.begin(); iter1 != kmer_comparisons.end(); ++iter1) {
                     for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
                         printf("%s,%s,%i\n", iter1->first.c_str(), iter2->first.c_str(), iter2->second);
