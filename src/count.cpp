@@ -299,7 +299,7 @@ int countMain(int argc, char** argv) {
         double lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
         if (is_diploid) {
             // each allele contributes to half of the coverage
-            double lambda = lambda / 2
+            lambda = lambda / 2;
         }
 
 
