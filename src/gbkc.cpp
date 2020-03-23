@@ -2,6 +2,7 @@
 #include <string>
 
 #include "check-profiles.h"
+#include "get-genotypes.h"
 #include "count.h"
 #include "distance.h"
 
@@ -10,6 +11,7 @@ static const char *GBKC_USAGE_MESSAGE =
 "Usage: gbkc <command> [options]\n\n"
 "Commands:\n"
 "           check-profiles      Compare k-mer count profiles for all known alleles to check if they are unique\n"
+"	   get-genotypes       Get all possible diploid genotypes given all known alleles\n"
 "           count               Score reads based on comparison of k-mer count profiles to those for known alleles\n"
 "           distance            Score reads based on comparison of k-mer pair distances to those for known alleles\n";
 
@@ -34,6 +36,9 @@ int main(int argc, char** argv){
 
         if(command == "check-profiles") {
             checkprofilesMain(argc - 1, argv + 1);
+        }
+	else if(command == "get-genotypes") {
+            getgenotypesMain(argc - 1, argv + 1);
         }
         else if(command == "count") {
             countMain(argc - 1, argv + 1);
