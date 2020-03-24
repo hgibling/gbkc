@@ -130,12 +130,12 @@ int countMain(int argc, char** argv) {
     double sequencing_error = -1;
     double coverage = -1;
     double lambda_error = 1;
-    std::string input_flanks_file;
+//  std::string input_flanks_file;
     std::string output_name = "count-results.csv";
     bool is_diploid = false;
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:m:f:o:dt:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:m:o:dt:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -148,7 +148,7 @@ int countMain(int argc, char** argv) {
             case 'e': arg >> sequencing_error; break;
             case 'c': arg >> coverage; break;
             case 'm': arg >> lambda_error; break;
-            case 'f': arg >> input_flanks_file; break;
+ //         case 'f': arg >> input_flanks_file; break;
             case 'o': arg >> output_name; break;
             case 'd': is_diploid = true; break;
             case 't': arg >> num_threads; break;
@@ -193,10 +193,10 @@ int countMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    if (input_flanks_file.empty()) {
-        fprintf(stderr, "No file for flank sequences. Check parameters.\n");
-        exit(EXIT_FAILURE);
-    }
+ // if (input_flanks_file.empty()) {
+ //     fprintf(stderr, "No file for flank sequences. Check parameters.\n");
+ //     exit(EXIT_FAILURE);
+ // }
 
     if (num_threads <= 0) {
         fprintf(stderr, "Number of threads must be greater than 0. Check parameters.\n");
@@ -227,7 +227,7 @@ int countMain(int argc, char** argv) {
     }
 
     // Get flank sequences
-    std::vector<sequence_record> flanks = read_sequences_from_file(input_flanks_file);
+//  std::vector<sequence_record> flanks = read_sequences_from_file(input_flanks_file);
 
     
     //
@@ -238,7 +238,7 @@ int countMain(int argc, char** argv) {
     fprintf(stderr, "Input reads: %s", input_reads_file1.c_str());
     fprintf(stderr, " %s", input_reads_file2.c_str());
     fprintf(stderr, "\nInput alleles: %s\n", input_alleles_file.c_str());
-    fprintf(stderr, "Input flank sequences: %s\n", input_flanks_file.c_str());
+//  fprintf(stderr, "Input flank sequences: %s\n", input_flanks_file.c_str());
     fprintf(stderr, "Number of alleles: %zu\n", allele_names.size());
     if (!is_diploid) {
         fprintf(stderr, "Haploid profiles used\n");
@@ -307,47 +307,46 @@ int countMain(int argc, char** argv) {
         // Calculate mean and median k-mer counts from flanking sequences
         //
 
-        kmer_count_map combined_flanks_counts; 
+//      kmer_count_map combined_flanks_counts; 
 
         // Iterate over each flank and combine
-        for (size_t f = 0; f < flanks.size(); ++f) {
-            kmer_count_map single_flank_kmer_counts = count_kmers(flanks[f].sequence, k_values[k]);
-            if (f == 0) {
-                combined_flanks_counts = single_flank_kmer_counts;
-            }
-            else {
-                for (auto iter = single_flank_kmer_counts.begin(); iter != single_flank_kmer_counts.end(); ++iter) {
-                    combined_flanks_counts[iter->first] += iter->second;
-                }
-            }
-        }
+//      for (size_t f = 0; f < flanks.size(); ++f) {
+//          kmer_count_map single_flank_kmer_counts = count_kmers(flanks[f].sequence, k_values[k]);
+//          if (f == 0) {
+//              combined_flanks_counts = single_flank_kmer_counts;
+//          }
+//          else {
+//              for (auto iter = single_flank_kmer_counts.begin(); iter != single_flank_kmer_counts.end(); ++iter) {
+//                  combined_flanks_counts[iter->first] += iter->second;
+//              }
+//          }
+//      }
 
         // Calculate mean and median k-mer counts
 
-        size_t sum_flank_kmer_counts = 0;
-        double mean_flank_kmer_counts;
+//      size_t sum_flank_kmer_counts = 0;
+//      double mean_flank_kmer_counts;
 
-        std::vector<size_t> flank_counts_vector;
-        double median_flank_kmer_counts;
+//      std::vector<size_t> flank_counts_vector;
+//      double median_flank_kmer_counts
+//      for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
+//          sum_flank_kmer_counts += iter->second;
+//          flank_counts_vector.push_back(iter->second);
+//      }
 
-        for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
-            sum_flank_kmer_counts += iter->second;
-            flank_counts_vector.push_back(iter->second);
-        }
+//      mean_flank_kmer_counts = sum_flank_kmer_counts / combined_flanks_counts.size();
 
-        mean_flank_kmer_counts = sum_flank_kmer_counts / combined_flanks_counts.size();
-
-        std::sort(flank_counts_vector.begin(), flank_counts_vector.end());
-        size_t median_position = flank_counts_vector.size() / 2;
+//      std::sort(flank_counts_vector.begin(), flank_counts_vector.end());
+//      size_t median_position = flank_counts_vector.size() / 2;
             // is rounded down if vector size is odd -- correct position for 0-based indexing
             // need to adjust if even
 
-        if ((flank_counts_vector.size() % 2) == 0) {
-            median_flank_kmer_counts = (flank_counts_vector[median_position] + flank_counts_vector[median_position - 1]) / 2; 
-        }
-        else {
-            median_flank_kmer_counts = flank_counts_vector[median_position];
-        }
+//      if ((flank_counts_vector.size() % 2) == 0) {
+//          median_flank_kmer_counts = (flank_counts_vector[median_position] + flank_counts_vector[median_position - 1]) / 2; 
+//      }
+//      else {
+//          median_flank_kmer_counts = flank_counts_vector[median_position];
+//      }
 
 
         //
@@ -356,7 +355,7 @@ int countMain(int argc, char** argv) {
 
         fprintf(stderr, "Information for k = %zu\n", k_values[k]);
         fprintf(stderr, "Lambda calculated as: %f\n", lambda);
-        fprintf(stderr, "Flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
+//      fprintf(stderr, "Flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
 
 
         //
