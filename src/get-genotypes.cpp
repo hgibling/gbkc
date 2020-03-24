@@ -47,7 +47,7 @@ int getgenotypesMain(int argc, char** argv) {
     std::string input_alleles_file;
     char separator = ',';
 
-    for (char c; (c = getopt_long(argc, argv, "a:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:s:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
