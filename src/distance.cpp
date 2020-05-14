@@ -102,9 +102,10 @@ double score_kmer_distances(const std::pair<std::string, std::string>& read_kmer
         for (auto iter1 = range1.first; iter1 != range1.second; ++iter1) {
             for (auto iter2 = range2.first; iter2 != range2.second; ++iter2) {
                 size_t distance = outer_distance(iter1->second, iter2->second, k, penalty);
-                kmer_pair_scores.push_back(log_normal_pdf(distance, fragment_length, fragment_stdev));
-            }
+		kmer_pair_scores.push_back(log_normal_pdf(distance, fragment_length, fragment_stdev));
+           }
         }
+
         if (method == "sum") {
             // Sum each log probability
             std::vector<double> antilog;
@@ -132,7 +133,7 @@ double score_kmer_distances(const std::pair<std::string, std::string>& read_kmer
         else if (method == "max") {
             // Take the maximum log probability
             score = *max_element(kmer_pair_scores.begin(), kmer_pair_scores.end());
-        }
+       }
         else {
             exit(EXIT_FAILURE);
         }
@@ -172,16 +173,17 @@ double genotype_score_read_kmer_pairs(const kmer_position_map& allele_positions1
         auto range = read_pairs.equal_range(*iter1);
         std::vector<double> compare_scores1;
         for (auto iter2 = range.first; iter2 != range.second; ++iter2) {
-            compare_scores1.push_back(score_kmer_distances(iter2->second, allele_positions1, fragment_length, fragment_stdev, k, penalty, method));
+		compare_scores1.push_back(score_kmer_distances(iter2->second, allele_positions1, fragment_length, fragment_stdev, k, penalty, method));
         }
-        double max_score1 = *max_element(compare_scores1.begin(), compare_scores1.end());
+	double max_score1 = *max_element(compare_scores1.begin(), compare_scores1.end());
 
         std::vector<double> compare_scores2;
         for (auto iter2 = range.first; iter2 != range.second; ++iter2) {
             compare_scores2.push_back(score_kmer_distances(iter2->second, allele_positions2, fragment_length, fragment_stdev, k, penalty, method));
         }
         double max_score2 = *max_element(compare_scores2.begin(), compare_scores2.end());
-        score += ((max_score1/2) + (max_score2/2));
+	double average_max_scores = log((exp(max_score1) + exp(max_score2))/2);
+	score += average_max_scores;
     }
     return score;
 }
