@@ -34,6 +34,7 @@ char complement(const char nucleotide)
         case 'C': return 'G';
         case 'G': return 'C';
         case 'T': return 'A';
+	case 'N': return 'N';
         default: 
             fprintf(stderr, "Error: unrecognized nucleotide %c\n", nucleotide);
             exit(EXIT_FAILURE);
@@ -44,7 +45,7 @@ char complement(const char nucleotide)
 std::string reverse_complement(const std::string& sequence)
 {
     size_t length = sequence.size();
-    std::string out_reverse_complement(length, 'N');
+    std::string out_reverse_complement(length, 'X');
     for (size_t i = 0; i < length; ++i) {
         out_reverse_complement[i] = complement(sequence[length - i - 1]);
     }
@@ -62,12 +63,16 @@ std::string canonical_kmer(const std::string& kmer)
 kmer_count_map count_kmers(const std::string& sequence, const size_t k)
 {
     kmer_count_map out_map;
+    char N_char = 'N';
     for (size_t i = 0; i < sequence.size() - k + 1; ++i) {
         std::string canon_kmer = canonical_kmer(sequence.substr(i, k));
-        out_map[canon_kmer] += 1;
+	// Only keep k-mers without Ns
+	if (canon_kmer.find(N_char) == std::string::npos) {
+		out_map[canon_kmer] += 1;
+	}
     }
     return out_map;
-}   
+}
 
 // Read input files
 std::vector<sequence_record> read_sequences_from_file(const std::string& input_filename)
@@ -276,6 +281,7 @@ int checkprofilesMain(int argc, char** argv) {
             kmer_count_map single_allele_kmer_counts = count_kmers(alleles[a].sequence, k);
             allele_kmer_counts[alleles[a].name] = single_allele_kmer_counts;
         }
+
 
         // Combine profiles for diploid genotypes if applicable
         if (is_diploid) {
