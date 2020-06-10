@@ -430,13 +430,16 @@ int distanceMain(int argc, char** argv) {
         kmer_pairs_map read_pairs;
         for (size_t r = 0; r < reads1.size(); ++r) {
 
-            // Get both first read kmer and reverse complement second read kmer, and reverse complement first read kmer
-            // and second read kmer, since we don't know orientation of the reads
+            // Get both first read kmer and reverse complement second read kmer, and reverse complement first read k-mer
+            // and second read k-mer, since we don't know orientation of the reads
             std::pair<std::string, std::string> first_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, k_values[k], 0);
             std::pair<std::string, std::string> second_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, k_values[k], 1);
 
-            read_pairs.insert({reads1[r].name, first_rc});
-            read_pairs.insert({reads1[r].name, second_rc});
+	    // Only keep k-mers without Ns
+	    if ((first_rc.first.find('N') == std::string::npos) & (first_rc.second.find('N') == std::string::npos)) {
+	            read_pairs.insert({reads1[r].name, first_rc});
+	            read_pairs.insert({reads1[r].name, second_rc});
+	    }
         }
 
 
