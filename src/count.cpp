@@ -304,7 +304,7 @@ int countMain(int argc, char** argv) {
 
 
         //
-        // Calculate mean and median k-mer counts from flanking sequences
+        // Calculate mean and median k-mer counts from allele flanking sequences
         //
 
         kmer_count_map combined_flanks_counts;
@@ -327,12 +327,13 @@ int countMain(int argc, char** argv) {
 
         double sum_flank_kmer_counts = 0;
         double mean_flank_kmer_counts;
-
+        std::vector<std::string> allele_flank_kmers;
         std::vector<size_t> flank_counts_vector;
         double median_flank_kmer_counts;
         for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
             sum_flank_kmer_counts += iter->second;
             flank_counts_vector.push_back(iter->second);
+            allele_flank_kmers.push_back(iter->first);
         }
 
         mean_flank_kmer_counts = sum_flank_kmer_counts / combined_flanks_counts.size();
@@ -353,9 +354,10 @@ int countMain(int argc, char** argv) {
         // Print more handy information
         //
 
-        fprintf(stderr, "Information for k = %zu\n", k_values[k]);
+        fprintf(stderr, "---\nInformation for k = %zu\n", k_values[k]);
         fprintf(stderr, "Lambda calculated as: %f\n", lambda);
-        fprintf(stderr, "Flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
+        fprintf(stderr, "Allele flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
+        fprintf(stderr, "Number of allele flanking k-mers: %zu\n", combined_flanks_counts.size());
 
 
         //
@@ -391,6 +393,8 @@ int countMain(int argc, char** argv) {
             }
         }
 
+        fprintf(stderr, "Number of allele sequence k-mers: %zu\n", allele_kmers.size());
+
 
         //
         // Count k-mers in reads
@@ -420,6 +424,17 @@ int countMain(int argc, char** argv) {
             }
         }
 
+        fprintf(stderr, "Number of read k-mers: %zu\n", all_reads_kmer_counts.size());
+
+        // Get counts for read k-mers in allele flank sequences
+        kmer_count_map all_reads_flank_kmer_counts;
+        for (auto iter = allele_flank_kmers.begin(); iter != allele_flank_kmers.end(); ++iter) {
+            std::string flank_kmer = *iter;
+            auto read_iter = all_reads_kmer_counts.find(flank_kmer);
+            size_t flank_kmer_count_in_read = read_iter != all_reads_kmer_counts.end() ? read_iter->second : 0;
+            all_reads_flank_kmer_counts[flank_kmer] = flank_kmer_count_in_read;
+        }
+        
 
         //
         // Score k-mer count profiles for each allele/genotype
