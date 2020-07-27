@@ -99,7 +99,8 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -l       read length\n"
 "       -e       sequencing error rate\n"
 "       -c       sequencing coverage\n"
-"       -m       error rate for lambda (default: 1)\n"
+"       -L       error rate for lambda (default: 1)\n"
+"       -m       method for calculating lambda (from coverage and error rate, or from flank k-mer counts; one of: coverage, mean, median)\n"
 "       -f       multi-fasta file of the two flanking sequences surrounding region of interest\n"
 "       -o       output file name (default: results.csv)\n"
 "       -t       number of threads (default: 1)\n";
@@ -131,12 +132,13 @@ int countMain(int argc, char** argv) {
     double sequencing_error = -1;
     double coverage = -1;
     double lambda_error = 1;
+    std::string lambda_method;
     std::string input_flanks_file;
     std::string output_name = "count-results.csv";
     bool is_diploid = false;
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:m:f:o:dt:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:L:m:f:o:dt:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -148,7 +150,8 @@ int countMain(int argc, char** argv) {
             case 'l': arg >> read_length; break;        // TODO: calculate from input reads files
             case 'e': arg >> sequencing_error; break;
             case 'c': arg >> coverage; break;
-            case 'm': arg >> lambda_error; break;
+            case 'L': arg >> lambda_error; break;
+            case 'm': arg >> lambda_method; break;
             case 'f': arg >> input_flanks_file; break;
             case 'o': arg >> output_name; break;
             case 'd': is_diploid = true; break;
@@ -191,6 +194,11 @@ int countMain(int argc, char** argv) {
 
     if (coverage <= 0) {
         fprintf(stderr, "Coverage must be greater than 0. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (lambda_method != "coverage" && lambda_method != "mean" && lambda_method != "median") {
+        fprintf(stderr, "Method must be one of 'coverage', 'mean', or 'median'. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -250,6 +258,7 @@ int countMain(int argc, char** argv) {
     fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
     fprintf(stderr, "Input lambda error: %f\n", lambda_error);
     fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
+    fprintf(stderr, "Selected lambda method: %s\n", lambda_method.c_str());
 
 
     //
@@ -438,6 +447,23 @@ int countMain(int argc, char** argv) {
             estimated_lambda_median = estimated_lambda_median / 2;
         }
 
+
+        //
+        // Select lambda for scoring
+        //
+
+        double lambda;
+        if (lambda_method == "coverage") {
+            lambda = calculated_lambda;
+        }
+        else if (lambda_method == "mean") {
+            lambda = estimated_lambda_mean;
+        }
+        else {      // median
+            lambda = estimated_lambda_median;
+        }
+
+
         //
         // Print more handy information
         //
@@ -445,12 +471,6 @@ int countMain(int argc, char** argv) {
         fprintf(stderr, "---\nInformation for k = %zu\n", k_values[k]);
         fprintf(stderr, "Lambda calculated from sequence coverage, error, read length: %f\n", calculated_lambda);
         fprintf(stderr, "Lambda calculated from flank kmer counts: mean: %f, median: %f\n", estimated_lambda_mean, estimated_lambda_median);
-
-
-        //
-        // Select lambda for scoring
-        //
-        double lambda = calculated_lambda;
 
 
         //
