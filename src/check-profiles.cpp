@@ -35,7 +35,7 @@ char complement(const char nucleotide)
         case 'G': return 'C';
         case 'T': return 'A';
 	case 'N': return 'N';
-        default: 
+        default:
             fprintf(stderr, "Error: unrecognized nucleotide %c\n", nucleotide);
             exit(EXIT_FAILURE);
     }
@@ -89,15 +89,15 @@ std::vector<sequence_record> read_sequences_from_file(const std::string& input_f
         fprintf(stderr, "error: could not open file %s using gzdopen. Check file name.\n", input_filename.c_str());
         exit(EXIT_FAILURE);
     }
-    
+
     std::vector<sequence_record> out_sequences;
     int ret = 0;
     kseq_t* seq = kseq_init(gz_read_fp);
     while((ret = kseq_read(seq)) >= 0) {
         sequence_record sr = { seq->name.s, seq->seq.s };
         out_sequences.push_back(sr);
-    }    
-    kseq_destroy(seq);   
+    }
+    kseq_destroy(seq);
 
     return out_sequences;
 }
@@ -135,7 +135,7 @@ kmer_comparison_map kmer_differences(const kmer_count_map& first_map, const kmer
 }
 
 // Generate all possible comparisons of two alleles
-std::vector<std::pair<std::string, std::string>> pairwise_comparisons(const std::set<std::string>& alleles, bool same) 
+std::vector<std::pair<std::string, std::string>> pairwise_comparisons(const std::set<std::string>& alleles, bool same)
 {
     std::vector<std::pair<std::string, std::string>> pairs;
     std::vector<std::string> alleles_vector(alleles.begin(), alleles.end());
@@ -233,7 +233,7 @@ int checkprofilesMain(int argc, char** argv) {
     //
 
     // TODO: Handle case where file names are null
-    
+
     // Get allele sequences
     std::vector<sequence_record> alleles = read_sequences_from_file(input_alleles_file);
 
@@ -273,7 +273,7 @@ int checkprofilesMain(int argc, char** argv) {
         fprintf(stderr, "Testing k = %zu... \n", k);
 
         // All k-mers in each allele or genotype
-        std::map<std::string, kmer_count_map> allele_kmer_counts; 
+        std::map<std::string, kmer_count_map> allele_kmer_counts;
         std::map<std::string, kmer_count_map> genotype_kmer_counts;
 
         // Get count profiles for each allele
@@ -310,7 +310,7 @@ int checkprofilesMain(int argc, char** argv) {
                     for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
                         printf("%zu,%s,%s,%zu\n", k, iter1->first.c_str(), iter2->first.c_str(), iter2->second);
                     }
-                } 
+                }
             }
         }
 
@@ -356,11 +356,11 @@ int checkprofilesMain(int argc, char** argv) {
                     for (auto iter = identical_profiles.begin(); iter != identical_profiles.end(); ++iter) {
                         printf("%s and %s\n", iter->first.c_str(), iter->second.c_str());
                     }
-                } 
+                }
                 else {
                     printf("All k-mer count profiles are unique\n");
                 }
-            } 
+            }
 
             else if (is_verbose) {
                 // Output is second profile - first profile
