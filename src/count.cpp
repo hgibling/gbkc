@@ -6,6 +6,7 @@
 #include <iostream>
 #include <map>
 #include <math.h>
+#include <numeric>
 #include <omp.h>
 #include <set>
 #include <sstream>
@@ -246,7 +247,7 @@ int countMain(int argc, char** argv) {
     else if (is_diploid) {
         fprintf(stderr, "Diploid profiles used\n");
     }
-        fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
+    fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
     fprintf(stderr, "Input lambda error: %f\n", lambda_error);
     fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
 
@@ -293,74 +294,6 @@ int countMain(int argc, char** argv) {
 
 
         //
-        // Calculate lambda
-        //
-
-        double lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
-        if (is_diploid) {
-            // each allele contributes to half of the coverage
-            lambda = lambda / 2;
-        }
-
-
-        //
-        // Calculate mean and median k-mer counts from allele flanking sequences
-        //
-
-        kmer_count_map combined_flanks_counts;
-
-        // Iterate over each flank and combine
-        for (size_t f = 0; f < flanks.size(); ++f) {
-            kmer_count_map single_flank_kmer_counts = count_kmers(flanks[f].sequence, k_values[k]);
-            if (f == 0) {
-                combined_flanks_counts = single_flank_kmer_counts;
-            }
-            else {
-                for (auto iter = single_flank_kmer_counts.begin(); iter != single_flank_kmer_counts.end(); ++iter) {
-                    combined_flanks_counts[iter->first] += iter->second;
-                }
-            }
-        }
-
-
-        // Calculate mean and median k-mer counts
-
-        double sum_flank_kmer_counts = 0;
-        double mean_flank_kmer_counts;
-        std::vector<std::string> allele_flank_kmers;
-        std::vector<size_t> flank_counts_vector;
-        double median_flank_kmer_counts;
-        for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
-            sum_flank_kmer_counts += iter->second;
-            flank_counts_vector.push_back(iter->second);
-            allele_flank_kmers.push_back(iter->first);
-        }
-
-        mean_flank_kmer_counts = sum_flank_kmer_counts / combined_flanks_counts.size();
-
-        std::sort(flank_counts_vector.begin(), flank_counts_vector.end());
-        size_t median_position = flank_counts_vector.size() / 2;
-        // is rounded down if vector size is odd -- correct position for 0-based indexing
-        // need to adjust if even
-        if ((flank_counts_vector.size() % 2) == 0) {
-            median_flank_kmer_counts = (flank_counts_vector[median_position] + flank_counts_vector[median_position - 1]) / 2;
-        }
-        else {
-            median_flank_kmer_counts = flank_counts_vector[median_position];
-        }
-
-
-        //
-        // Print more handy information
-        //
-
-        fprintf(stderr, "---\nInformation for k = %zu\n", k_values[k]);
-        fprintf(stderr, "Lambda calculated as: %f\n", lambda);
-        fprintf(stderr, "Allele flanking sequence k-mer count mean: %f and median: %f \n", mean_flank_kmer_counts, median_flank_kmer_counts);
-        fprintf(stderr, "Number of allele flanking k-mers: %zu\n", combined_flanks_counts.size());
-
-
-        //
         // Count k-mers in alleles/genotypes
         //
 
@@ -393,8 +326,6 @@ int countMain(int argc, char** argv) {
             }
         }
 
-        fprintf(stderr, "Number of allele sequence k-mers: %zu\n", allele_kmers.size());
-
 
         //
         // Count k-mers in reads
@@ -424,17 +355,103 @@ int countMain(int argc, char** argv) {
             }
         }
 
-        fprintf(stderr, "Number of read k-mers: %zu\n", all_reads_kmer_counts.size());
 
-        // Get counts for read k-mers in allele flank sequences
-        kmer_count_map all_reads_flank_kmer_counts;
-        for (auto iter = allele_flank_kmers.begin(); iter != allele_flank_kmers.end(); ++iter) {
+        //
+        // Calculate lambda from coverage, error rate, read length, and k
+        //
+
+        double calculated_lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
+
+
+        //
+        // Calculate lambda from flanking kmer counts
+        //
+
+        // Iterate over each flank sequence and combine
+        kmer_count_map combined_flanks_counts;
+        for (size_t f = 0; f < flanks.size(); ++f) {
+            kmer_count_map single_flank_kmer_counts = count_kmers(flanks[f].sequence, k_values[k]);
+            if (f == 0) {
+                combined_flanks_counts = single_flank_kmer_counts;
+            }
+            else {
+                for (auto iter = single_flank_kmer_counts.begin(); iter != single_flank_kmer_counts.end(); ++iter) {
+                    combined_flanks_counts[iter->first] += iter->second;
+                }
+            }
+        }
+
+        // Get vector of k-mers in flank sequences
+        std::vector<std::string> flank_kmers;
+        for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
+            flank_kmers.push_back(iter->first);
+        }
+
+        // Get counts from k-mers unique to flank sequences
+        kmer_count_map flank_unqiue_kmer_counts;
+        for (auto iter = flank_kmers.begin(); iter != flank_kmers.end(); ++iter) {
             std::string flank_kmer = *iter;
+            auto flank_iter = allele_kmers.find(flank_kmer);
+            if (flank_iter != allele_kmers.end()) {
+                flank_unqiue_kmer_counts[flank_kmer] = combined_flanks_counts[flank_kmer];
+            }
+        }
+
+        // Get counts for flank-unique k-mers in reads
+        kmer_count_map all_reads_flank_kmer_counts;
+        for (auto iter = flank_unqiue_kmer_counts.begin(); iter != flank_unqiue_kmer_counts.end(); ++iter) {
+            std::string flank_kmer = iter->first;
             auto read_iter = all_reads_kmer_counts.find(flank_kmer);
             size_t flank_kmer_count_in_read = read_iter != all_reads_kmer_counts.end() ? read_iter->second : 0;
             all_reads_flank_kmer_counts[flank_kmer] = flank_kmer_count_in_read;
         }
-        
+
+        // Calculate estimated lambda
+        double estimated_lambda_sum = 0;
+        std::vector<double> read_flank_kmers_lambda;
+        for (auto iter = flank_unqiue_kmer_counts.begin(); iter != flank_unqiue_kmer_counts.end(); ++iter) {
+            // k-mer count in reads / k-mer count in flank sequences
+            double est_lambda = all_reads_flank_kmer_counts[iter->first] / iter->second;
+            estimated_lambda_sum += est_lambda;
+            read_flank_kmers_lambda.push_back(est_lambda);
+        }
+        // Lambda mean
+        double estimated_lambda_mean = estimated_lambda_sum / read_flank_kmers_lambda.size();
+        // Lambda median
+        double estimated_lambda_median;
+        std::sort(read_flank_kmers_lambda.begin(), read_flank_kmers_lambda.end());
+        size_t median_position = read_flank_kmers_lambda.size() / 2;
+            // value is rounded down if vector size is odd -- correct position for 0-based indexing
+        if ((read_flank_kmers_lambda.size() % 2) == 0) {
+            estimated_lambda_median = (read_flank_kmers_lambda[median_position] + read_flank_kmers_lambda[median_position - 1]) / 2;
+        }
+        else {
+            estimated_lambda_median = read_flank_kmers_lambda[median_position];
+        }
+
+
+        // Adjust lambda for diploid calling
+        if (is_diploid) {
+            // each allele contributes to half of the coverage
+            calculated_lambda = calculated_lambda / 2;
+            estimated_lambda_mean = estimated_lambda_mean / 2;
+            estimated_lambda_median = estimated_lambda_median / 2;
+        }
+
+        //
+        // Print more handy information
+        //
+
+        fprintf(stderr, "---\nInformation for k = %zu\n", k_values[k]);
+        fprintf(stderr, "Lambda calculated from sequence coverage, error, read length: %f\n", calculated_lambda);
+        fprintf(stderr, "Lambda calculated from flank kmer counts: mean: %f, median: %f\n", estimated_lambda_mean, estimated_lambda_median);
+
+
+        //
+        // Select lambda for scoring
+        //
+        double lambda = calculated_lambda;
+
 
         //
         // Score k-mer count profiles for each allele/genotype
@@ -477,4 +494,3 @@ int countMain(int argc, char** argv) {
 
     return 0;
 }
-
