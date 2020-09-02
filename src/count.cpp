@@ -466,6 +466,26 @@ int countMain(int argc, char** argv) {
                 estimated_lambda_mean = estimated_lambda_mean / 2;
                 estimated_lambda_median = estimated_lambda_median / 2;
             }
+
+            // Output for troubleshooting
+            struct debug_count
+            {
+                size_t flank_count;
+                size_t read_count;
+            };
+
+            std::map<std::string, debug_count> flank_comparison_kmer_counts;
+            for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
+                flank_comparison_kmer_counts[iter->first].flank_count = iter->second;
+            }
+            for (auto iter = all_reads_flank_kmer_counts.begin(); iter != all_reads_flank_kmer_counts.end(); ++iter) {
+                flank_comparison_kmer_counts[iter->first].read_count = iter->second;
+            }
+
+            fprintf(stderr, "---\nFlank kmer info\n");
+            for (auto iter = flank_comparison_kmer_counts.begin(); iter != flank_comparison_kmer_counts.end(); ++iter) {
+                fprintf(stderr, "%s,%zu,%zu\n", iter->first.c_str(), iter->second.flank_count, iter->second.read_count);
+            }
         }
 
 
