@@ -101,6 +101,7 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -c       sequencing coverage\n"
 "       -L       error rate for lambda (default: 1)\n"
 "       -m       method for calculating lambda (from coverage and error rate, or from flank k-mer counts; one of: coverage, mean, median)\n"
+"       -v       verbose printout for flanking sequence kmer counts\n"
 "       -M       manual lambda entry (overrides lambda method selection)\n"
 "       -f       multi-fasta file of the two flanking sequences surrounding region of interest\n"
 "       -o       output file name (default: results.csv)\n"
@@ -138,9 +139,10 @@ int countMain(int argc, char** argv) {
     std::string input_flanks_file;
     std::string output_name = "count-results.csv";
     bool is_diploid = false;
+    bool is_verbose = false;
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:L:m:M:f:o:dt:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:L:m:vM:f:o:dt:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -154,6 +156,7 @@ int countMain(int argc, char** argv) {
             case 'c': arg >> coverage; break;
             case 'L': arg >> lambda_error; break;
             case 'm': arg >> lambda_method; break;
+            case 'v': is_verbose = true; break;
             case 'M': arg >> manual_lambda; break;     // temporary for troubleshooting
             case 'f': arg >> input_flanks_file; break;
             case 'o': arg >> output_name; break;
@@ -467,24 +470,26 @@ int countMain(int argc, char** argv) {
                 estimated_lambda_median = estimated_lambda_median / 2;
             }
 
-            // Output for troubleshooting
-            struct debug_count
-            {
-                size_t flank_count;
-                size_t read_count;
-            };
+            if (is_verbose) {
+                // Output for troubleshooting
+                struct debug_count
+                {
+                    size_t flank_count;
+                    size_t read_count;
+                };
 
-            std::map<std::string, debug_count> flank_comparison_kmer_counts;
-            for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
-                flank_comparison_kmer_counts[iter->first].flank_count = iter->second;
-            }
-            for (auto iter = all_reads_flank_kmer_counts.begin(); iter != all_reads_flank_kmer_counts.end(); ++iter) {
-                flank_comparison_kmer_counts[iter->first].read_count = iter->second;
-            }
+                std::map<std::string, debug_count> flank_comparison_kmer_counts;
+                for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
+                    flank_comparison_kmer_counts[iter->first].flank_count = iter->second;
+                }
+                for (auto iter = all_reads_flank_kmer_counts.begin(); iter != all_reads_flank_kmer_counts.end(); ++iter) {
+                    flank_comparison_kmer_counts[iter->first].read_count = iter->second;
+                }
 
-            fprintf(stderr, "---\nFlank kmer info\n");
-            for (auto iter = flank_comparison_kmer_counts.begin(); iter != flank_comparison_kmer_counts.end(); ++iter) {
-                fprintf(stderr, "%s,%zu,%zu\n", iter->first.c_str(), iter->second.flank_count, iter->second.read_count);
+                fprintf(stderr, "---\nFlank kmer info\n");
+                for (auto iter = flank_comparison_kmer_counts.begin(); iter != flank_comparison_kmer_counts.end(); ++iter) {
+                    fprintf(stderr, "%s,%zu,%zu\n", iter->first.c_str(), iter->second.flank_count, iter->second.read_count);
+                }
             }
         }
 
