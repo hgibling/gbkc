@@ -208,6 +208,11 @@ int countMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
+    if (manual_lambda != -1 && manual_lambda <= 0) {
+        fprintf(stderr, "Manual lambda must be greater than 0. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
     if (input_flanks_file.empty()) {
         fprintf(stderr, "No file for flank sequences. Check parameters.\n");
         exit(EXIT_FAILURE);
@@ -503,7 +508,7 @@ int countMain(int argc, char** argv) {
         //
 
         double lambda;
-        if (manual_lambda != -1) {
+        if (manual_lambda > 0) {
             lambda = manual_lambda;
         }
         else if (lambda_method == "coverage") {
@@ -529,6 +534,8 @@ int countMain(int argc, char** argv) {
         if (manual_lambda != -1 || manual_lambda != -0.5) {
             fprintf(stderr, "Manual lambda provided: %f\n", manual_lambda);
         }
+        fprintf(stderr, "Final Lambda: %f\n", lambda);
+
 
 
         //
