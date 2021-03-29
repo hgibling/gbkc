@@ -392,13 +392,6 @@ int countMain(int argc, char** argv) {
 
         double calculated_lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
 
-        // Adjust lambda for diploid calling
-        if (is_diploid) {
-            // each allele contributes to half of the coverage
-            calculated_lambda = calculated_lambda / 2;
-            manual_lambda = manual_lambda / 2;
-        }
-
 
         //
         // Calculate lambda from flanking kmer counts if necessary
@@ -472,13 +465,6 @@ int countMain(int argc, char** argv) {
                 estimated_lambda_median = read_flank_kmers_lambda[median_position];
             }
 
-            // Adjust lambda for diploid calling
-            if (is_diploid) {
-                // each allele contributes to half of the coverage
-                estimated_lambda_mean = estimated_lambda_mean / 2;
-                estimated_lambda_median = estimated_lambda_median / 2;
-            }
-
             if (is_verbose) {
                 // Output for troubleshooting
                 struct debug_count
@@ -521,6 +507,13 @@ int countMain(int argc, char** argv) {
             lambda = estimated_lambda_median;
         }
 
+        // Adjust lambda for diploid calling
+        double diploid_lambda;
+        if (is_diploid) {
+            // each allele contributes to half of the coverage
+            diploid_lambda = lambda / 2;
+        }        
+
 
         //
         // Print more handy information
@@ -534,8 +527,12 @@ int countMain(int argc, char** argv) {
         if (manual_lambda != -1 || manual_lambda != -0.5) {
             fprintf(stderr, "Manual lambda provided: %f\n", manual_lambda);
         }
-        fprintf(stderr, "Final Lambda: %f\n", lambda);
-
+        if (!is_diploid) {
+            fprintf(stderr, "Lambda value used: %f\n", lambda);
+        }
+        else {
+            fprintf(stderr, "Lambda value used: %f\n", diploid_lambda);
+        }
 
 
         //
@@ -550,10 +547,10 @@ int countMain(int argc, char** argv) {
                 all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
             }
         }
-        else if (is_diploid) {
+        else {
             for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
                 std::string g = *iter;
-                all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
+                all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, diploid_lambda, lambda_error);
             }
         }
 
@@ -567,12 +564,6 @@ int countMain(int argc, char** argv) {
             for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
                 fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
             }
-
-
-        // Re-adjust manual lambda if diploid so it can be recalculated correctly for next k
-        if (is_diploid) {
-            manual_lambda = manual_lambda * 2;
-        }
         }
     }
 
