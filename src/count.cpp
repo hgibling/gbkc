@@ -360,18 +360,22 @@ int countMain(int argc, char** argv) {
 
         // Iterate over each read
         for (size_t r = 0; r < reads1.size(); ++r) {
-            std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads1[r].sequence, k_values[k]);
-            each_read_kmer_counts[reads1[r].name.c_str()] = single_read_kmer_counts;
-            for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
-                all_reads_kmer_counts[iter->first] += iter->second;
+            if (reads1[r].sequence.length() > k_values[k]) {
+                std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads1[r].sequence, k_values[k]);
+                each_read_kmer_counts[reads1[r].name.c_str()] = single_read_kmer_counts;
+                for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
+                    all_reads_kmer_counts[iter->first] += iter->second;
+                }
             }
         }
         if (!input_reads_file2.empty()) {
             for (size_t r = 0; r < reads2.size(); ++r) {
-                std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, k_values[k]);
-                each_read_kmer_counts[reads2[r].name.c_str()] = single_read_kmer_counts;
-                for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
-                    all_reads_kmer_counts[iter->first] += iter->second;
+                if (reads2[r].sequence.length() > k_values[k]) {
+                    std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, k_values[k]);
+                    each_read_kmer_counts[reads2[r].name.c_str()] = single_read_kmer_counts;
+                    for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
+                        all_reads_kmer_counts[iter->first] += iter->second;
+                    }
                 }
             }
         }
