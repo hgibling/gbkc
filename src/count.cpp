@@ -69,13 +69,15 @@ double score_kmer(const size_t read_count, const size_t allele_count, const doub
 double score_profile(const kmer_count_map& read_map, const kmer_count_map& allele_map, const std::unordered_set<std::string>& allele_union_kmers, const double lambda, const double lambda_error)
 {
     double score = 0;
+    double single_score = 0;
     for (auto iter = allele_union_kmers.begin(); iter != allele_union_kmers.end(); ++iter) {
         std::string kmer = *iter;
         auto read_iter = read_map.find(kmer);
         size_t kmer_count_in_read = read_iter != read_map.end() ? read_iter->second : 0;
         auto allele_iter = allele_map.find(kmer);
         size_t kmer_count_in_allele = allele_iter != allele_map.end() ? allele_iter->second : 0;
-        score += score_kmer(kmer_count_in_read, kmer_count_in_allele, lambda, lambda_error);
+        single_score = score_kmer(kmer_count_in_read, kmer_count_in_allele, lambda, lambda_error);
+        score += single_score;
     }
     return score;
 }
@@ -267,7 +269,6 @@ int countMain(int argc, char** argv) {
     else {
         fprintf(stderr, "Selected lambda method: %s\n", lambda_method.c_str());
     }
-    //fprintf(stderr, "Selected lambda method: %s\n", lambda_method.c_str());
 
 
     //
@@ -357,18 +358,22 @@ int countMain(int argc, char** argv) {
 
         // Iterate over each read
         for (size_t r = 0; r < reads1.size(); ++r) {
-            std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads1[r].sequence, k_values[k]);
-            each_read_kmer_counts[reads1[r].name.c_str()] = single_read_kmer_counts;
-            for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
-                all_reads_kmer_counts[iter->first] += iter->second;
+            if (reads1[r].sequence.length() > k_values[k]) {
+                std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads1[r].sequence, k_values[k]);
+                each_read_kmer_counts[reads1[r].name.c_str()] = single_read_kmer_counts;
+                for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
+                    all_reads_kmer_counts[iter->first] += iter->second;
+                }
             }
         }
         if (!input_reads_file2.empty()) {
             for (size_t r = 0; r < reads2.size(); ++r) {
-                std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, k_values[k]);
-                each_read_kmer_counts[reads2[r].name.c_str()] = single_read_kmer_counts;
-                for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
-                    all_reads_kmer_counts[iter->first] += iter->second;
+                if (reads2[r].sequence.length() > k_values[k]) {
+                    std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, k_values[k]);
+                    each_read_kmer_counts[reads2[r].name.c_str()] = single_read_kmer_counts;
+                    for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
+                        all_reads_kmer_counts[iter->first] += iter->second;
+                    }
                 }
             }
         }
@@ -379,7 +384,6 @@ int countMain(int argc, char** argv) {
         //
 
         double calculated_lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
-
         // Adjust lambda for diploid calling
         if (is_diploid) {
             // each allele contributes to half of the coverage
@@ -466,26 +470,6 @@ int countMain(int argc, char** argv) {
                 estimated_lambda_mean = estimated_lambda_mean / 2;
                 estimated_lambda_median = estimated_lambda_median / 2;
             }
-
-            // Output for troubleshooting
-            struct debug_count
-            {
-                size_t flank_count;
-                size_t read_count;
-            };
-
-            std::map<std::string, debug_count> flank_comparison_kmer_counts;
-            for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
-                flank_comparison_kmer_counts[iter->first].flank_count = iter->second;
-            }
-            for (auto iter = all_reads_flank_kmer_counts.begin(); iter != all_reads_flank_kmer_counts.end(); ++iter) {
-                flank_comparison_kmer_counts[iter->first].read_count = iter->second;
-            }
-
-            fprintf(stderr, "---\nFlank kmer info\n");
-            for (auto iter = flank_comparison_kmer_counts.begin(); iter != flank_comparison_kmer_counts.end(); ++iter) {
-                fprintf(stderr, "%s,%zu,%zu\n", iter->first.c_str(), iter->second.flank_count, iter->second.read_count);
-            }
         }
 
 
@@ -493,18 +477,23 @@ int countMain(int argc, char** argv) {
         // Select lambda for scoring
         //
 
+        // TODO: FIX MEAN, MEDIAN, COVERAGE LAMBDA! NOT WORKING!    
+
         double lambda;
-        if (manual_lambda != -1) {
+        if (manual_lambda > 0) {
             lambda = manual_lambda;
         }
         else if (lambda_method == "coverage") {
             lambda = calculated_lambda;
+
         }
         else if (lambda_method == "mean") {
             lambda = estimated_lambda_mean;
+
         }
         else {      // median
             lambda = estimated_lambda_median;
+
         }
 
 
