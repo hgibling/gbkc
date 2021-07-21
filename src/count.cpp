@@ -69,13 +69,16 @@ double score_kmer(const size_t read_count, const size_t allele_count, const doub
 double score_profile(const kmer_count_map& read_map, const kmer_count_map& allele_map, const std::unordered_set<std::string>& allele_union_kmers, const double lambda, const double lambda_error)
 {
     double score = 0;
+    double single_score = 0;
     for (auto iter = allele_union_kmers.begin(); iter != allele_union_kmers.end(); ++iter) {
         std::string kmer = *iter;
         auto read_iter = read_map.find(kmer);
         size_t kmer_count_in_read = read_iter != read_map.end() ? read_iter->second : 0;
         auto allele_iter = allele_map.find(kmer);
         size_t kmer_count_in_allele = allele_iter != allele_map.end() ? allele_iter->second : 0;
-        score += score_kmer(kmer_count_in_read, kmer_count_in_allele, lambda, lambda_error);
+        single_score = score_kmer(kmer_count_in_read, kmer_count_in_allele, lambda, lambda_error);
+        fprintf(stderr, "%s\t%zu\t%f\t%zu\t%f\n", kmer.c_str(), kmer_count_in_allele, kmer_count_in_allele*lambda, kmer_count_in_read, single_score);
+        score += single_score;
     }
     return score;
 }
@@ -101,7 +104,6 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -c       sequencing coverage\n"
 "       -L       error rate for lambda (default: 1)\n"
 "       -m       method for calculating lambda (from coverage and error rate, or from flank k-mer counts; one of: coverage, mean, median)\n"
-"       -v       verbose printout for flanking sequence kmer counts\n"
 "       -M       manual lambda entry (overrides lambda method selection)\n"
 "       -f       multi-fasta file of the two flanking sequences surrounding region of interest\n"
 "       -o       output file name (default: results.csv)\n"
@@ -139,10 +141,9 @@ int countMain(int argc, char** argv) {
     std::string input_flanks_file;
     std::string output_name = "count-results.csv";
     bool is_diploid = false;
-    bool is_verbose = false;
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:L:m:vM:f:o:dt:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:L:m:M:f:o:dt:", NULL, NULL)) != -1;) {
         std::istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -156,7 +157,6 @@ int countMain(int argc, char** argv) {
             case 'c': arg >> coverage; break;
             case 'L': arg >> lambda_error; break;
             case 'm': arg >> lambda_method; break;
-            case 'v': is_verbose = true; break;
             case 'M': arg >> manual_lambda; break;     // temporary for troubleshooting
             case 'f': arg >> input_flanks_file; break;
             case 'o': arg >> output_name; break;
@@ -205,11 +205,6 @@ int countMain(int argc, char** argv) {
 
     if (lambda_method != "coverage" && lambda_method != "mean" && lambda_method != "median") {
         fprintf(stderr, "Method must be one of 'coverage', 'mean', or 'median'. Check parameters.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (manual_lambda != -1 && manual_lambda <= 0) {
-        fprintf(stderr, "Manual lambda must be greater than 0. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -392,6 +387,13 @@ int countMain(int argc, char** argv) {
 
         double calculated_lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
 
+        // Adjust lambda for diploid calling
+        if (is_diploid) {
+            // each allele contributes to half of the coverage
+            calculated_lambda = calculated_lambda / 2;
+            manual_lambda = manual_lambda / 2;
+        }
+
 
         //
         // Calculate lambda from flanking kmer counts if necessary
@@ -465,26 +467,31 @@ int countMain(int argc, char** argv) {
                 estimated_lambda_median = read_flank_kmers_lambda[median_position];
             }
 
-            if (is_verbose) {
-                // Output for troubleshooting
-                struct debug_count
-                {
-                    size_t flank_count;
-                    size_t read_count;
-                };
+            // Adjust lambda for diploid calling
+            if (is_diploid) {
+                // each allele contributes to half of the coverage
+                estimated_lambda_mean = estimated_lambda_mean / 2;
+                estimated_lambda_median = estimated_lambda_median / 2;
+            }
 
-                std::map<std::string, debug_count> flank_comparison_kmer_counts;
-                for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
-                    flank_comparison_kmer_counts[iter->first].flank_count = iter->second;
-                }
-                for (auto iter = all_reads_flank_kmer_counts.begin(); iter != all_reads_flank_kmer_counts.end(); ++iter) {
-                    flank_comparison_kmer_counts[iter->first].read_count = iter->second;
-                }
+            // Output for troubleshooting
+            struct debug_count
+            {
+                size_t flank_count;
+                size_t read_count;
+            };
 
-                fprintf(stderr, "---\nFlank kmer info\n");
-                for (auto iter = flank_comparison_kmer_counts.begin(); iter != flank_comparison_kmer_counts.end(); ++iter) {
-                    fprintf(stderr, "%s,%zu,%zu\n", iter->first.c_str(), iter->second.flank_count, iter->second.read_count);
-                }
+            std::map<std::string, debug_count> flank_comparison_kmer_counts;
+            for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
+                flank_comparison_kmer_counts[iter->first].flank_count = iter->second;
+            }
+            for (auto iter = all_reads_flank_kmer_counts.begin(); iter != all_reads_flank_kmer_counts.end(); ++iter) {
+                flank_comparison_kmer_counts[iter->first].read_count = iter->second;
+            }
+
+            fprintf(stderr, "---\nFlank kmer info\n");
+            for (auto iter = flank_comparison_kmer_counts.begin(); iter != flank_comparison_kmer_counts.end(); ++iter) {
+                fprintf(stderr, "%s,%zu,%zu\n", iter->first.c_str(), iter->second.flank_count, iter->second.read_count);
             }
         }
 
@@ -493,8 +500,10 @@ int countMain(int argc, char** argv) {
         // Select lambda for scoring
         //
 
+        // TODO: FIX MEAN, MEDIAN, COVERAGE LAMBDA! NOT WORKING!    
+
         double lambda;
-        if (manual_lambda > 0) {
+        if (manual_lambda != -1) {
             lambda = manual_lambda;
         }
         else if (lambda_method == "coverage") {
@@ -506,13 +515,6 @@ int countMain(int argc, char** argv) {
         else {      // median
             lambda = estimated_lambda_median;
         }
-
-        // Adjust lambda for diploid calling
-        double diploid_lambda;
-        if (is_diploid) {
-            // each allele contributes to half of the coverage
-            diploid_lambda = lambda / 2;
-        }        
 
 
         //
@@ -526,12 +528,6 @@ int countMain(int argc, char** argv) {
         }
         if (manual_lambda != -1 || manual_lambda != -0.5) {
             fprintf(stderr, "Manual lambda provided: %f\n", manual_lambda);
-        }
-        if (!is_diploid) {
-            fprintf(stderr, "Lambda value used: %f\n", lambda);
-        }
-        else {
-            fprintf(stderr, "Lambda value used: %f\n", diploid_lambda);
         }
 
 
@@ -547,10 +543,11 @@ int countMain(int argc, char** argv) {
                 all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
             }
         }
-        else {
+        else if (is_diploid) {
             for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
                 std::string g = *iter;
-                all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, diploid_lambda, lambda_error);
+                fprintf(stderr, "--- %s kmer stats---\n", g.c_str());
+                all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
             }
         }
 
@@ -564,6 +561,12 @@ int countMain(int argc, char** argv) {
             for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
                 fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
             }
+
+
+        // Re-adjust manual lambda if diploid so it can be recalculated correctly for next k
+        if (is_diploid) {
+            manual_lambda = manual_lambda * 2;
+        }
         }
     }
 
