@@ -28,6 +28,16 @@
 // Define functions
 //
 
+// Index kmers
+kmer_count_map index_kmers(const std::vector<std::string>& allele_kmer_vector)
+{
+    kmer_count_map out_map;
+    for (size_t i = 0; i < allele_kmer_vector.size(); ++i) {
+        out_map[allele_kmer_vector[i]] = i;
+    }
+    return out_map;
+}
+
 // Calculate lambda
 double calculate_lambda(const double read_length, const size_t k, const double coverage, const double sequencing_error)
 {
@@ -135,7 +145,7 @@ int countMain(int argc, char** argv) {
     double sequencing_error = -1;
     double coverage = -1;
     double lambda_error = 1;
-    std::string lambda_method;
+    std::string lambda_method = "coverage";     // default temporary for multinomial development
     double manual_lambda = -1;       // temporary for troubleshooting
     std::string input_flanks_file;
     std::string output_name = "count-results.csv";
@@ -318,19 +328,25 @@ int countMain(int argc, char** argv) {
 
         // All k-mers in each allele/genotype
         std::map<std::string, kmer_count_map> allele_kmer_counts;
-        std::map<std::string, kmer_count_map> genotype_kmer_counts;
+        std::map<std::string, std::vector<std::string>> allele_kmer_vectors;
+        std::map<std::string, kmer_count_map> allele_kmer_indices;
 
+        std::map<std::string, kmer_count_map> genotype_kmer_counts;
+        std::map<std::string, std::vector<std::string>> genotytpe_kmer_vectors;
+        std::map<std::string, kmer_count_map> genotype_kmer_indices;
 
         // Union of k-mers from all alleles
-        std::unordered_set<std::string> allele_kmers;
+        std::unordered_set<std::string> union_allele_kmers;
 
         // Iterate over each allele
         for (size_t a = 0; a < alleles.size(); ++a) {
-            std::map<std::string, size_t> single_allele_kmer_counts = count_kmers(alleles[a].sequence, k_values[k]);
+            kmer_count_map single_allele_kmer_counts = count_kmers(alleles[a].sequence, k_values[k]);
             allele_kmer_counts[alleles[a].name.c_str()] = single_allele_kmer_counts;
             for (auto iter = single_allele_kmer_counts.begin(); iter != single_allele_kmer_counts.end(); ++iter) {
-                allele_kmers.insert(iter->first);
+                union_allele_kmers.insert(iter->first);
+                allele_kmer_vectors[alleles[a].name.c_str()].push_back(iter->first);
             }
+            allele_kmer_indices[alleles[a].name.c_str()] = index_kmers(allele_kmer_vectors[alleles[a].name.c_str()]);
         }
 
         // Combine profiles for diploid genotypes if applicable
@@ -352,7 +368,6 @@ int countMain(int argc, char** argv) {
 
         // k-mers and counts for each read
         std::map<std::string, kmer_count_map> each_read_kmer_counts;
-
         // k-mers and counts across all reads
         kmer_count_map all_reads_kmer_counts;
 
@@ -423,8 +438,8 @@ int countMain(int argc, char** argv) {
             kmer_count_map flank_unqiue_kmer_counts;
             for (auto iter = flank_kmers.begin(); iter != flank_kmers.end(); ++iter) {
                 std::string flank_kmer = *iter;
-                auto flank_iter = allele_kmers.find(flank_kmer);
-                if (flank_iter == allele_kmers.end()) {
+                auto flank_iter = union_allele_kmers.find(flank_kmer);
+                if (flank_iter == union_allele_kmers.end()) {
                     flank_unqiue_kmer_counts[flank_kmer] = combined_flanks_counts[flank_kmer];
                 }
             }
@@ -520,13 +535,13 @@ int countMain(int argc, char** argv) {
         if (!is_diploid) {
             for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
                 std::string a = *iter;
-                all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
+                all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], union_allele_kmers, lambda, lambda_error);
             }
         }
         else if (is_diploid) {
             for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
                 std::string g = *iter;
-                all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
+                all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], union_allele_kmers, lambda, lambda_error);
             }
         }
 
