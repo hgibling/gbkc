@@ -77,10 +77,6 @@ double score_profile(const kmer_count_map& read_map, const kmer_count_map& allel
         auto allele_iter = allele_map.find(kmer);
         size_t kmer_count_in_allele = allele_iter != allele_map.end() ? allele_iter->second : 0;
         single_score = score_kmer(kmer_count_in_read, kmer_count_in_allele, lambda, lambda_error);
-<<<<<<< HEAD
-        fprintf(stderr, "%zu\t%zu\t%f\n", kmer_count_in_read, kmer_count_in_allele, single_score);
-=======
->>>>>>> d976852d4347fba7dc4041d001217d5764bfaa7c
         score += single_score;
     }
     return score;
