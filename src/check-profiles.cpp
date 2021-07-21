@@ -354,7 +354,7 @@ int checkprofilesMain(int argc, char** argv) {
                 if (identical_profiles.size() > 0) {
                     printf("Some alleles had identical k-mer count profiles:\n");
                     for (auto iter = identical_profiles.begin(); iter != identical_profiles.end(); ++iter) {
-                        printf("%s and %s\n", iter->first.c_str(), iter->second.c_str());
+                        printf("%s and %s at k=%zu\n", iter->first.c_str(), iter->second.c_str(), k);
                     }
                 }
                 else {
