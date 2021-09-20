@@ -38,6 +38,28 @@ kmer_count_map index_kmers(const std::vector<std::string>& allele_kmer_vector)
     return out_map;
 }
 
+// Get all kmers within specified edit/hamming distance
+// std::vector<std::string> hamming_kmers(std::string kmer)
+// {
+//     std::vector<std::string> out_vector;
+//     //fprintf(stderr, "kmer %s: ", kmer.c_str);
+//     for (size_t i = 0; i < kmer.size(); ++i) {
+//         std::vector<char> nucleotides { 'A', 'C', 'G', 'T' };
+//         char n = kmer[i];
+//         fprintf(stderr, "%s %c\n", kmer.c_str(), n);
+//         // std::vector<int>::iterator it = std::find(nucleotides.begin(), nucleotides.end(), n) != nucleotides.end();
+//         // size_t index = std::distance(nucleotides.begin(), it);
+//         // nucleotides.erase (nucleotides.begin()+index);
+//         // for (size_t j = 0; j < nucleotides.size(); ++j) {
+//         //     std::string ham_kmer = kmer.replace(i, 1, nucleotides[j]);
+//         //     out_vector.push_back(ham_kmer);
+//         //     //fprintf(stderr, "%s", ham_kmer.c_str());
+//         // }
+//         //fprintf(stderr, "\n")
+//     }
+//     return out_vector;
+// }
+
 // Calculate lambda
 double calculate_lambda(const double read_length, const size_t k, const double coverage, const double sequencing_error)
 {
@@ -330,6 +352,7 @@ int countMain(int argc, char** argv) {
         std::map<std::string, kmer_count_map> allele_kmer_counts;
         std::map<std::string, std::vector<std::string>> allele_kmer_vectors;
         std::map<std::string, kmer_count_map> allele_kmer_indices;
+        std::map<std::string, std::map<std::string, std::vector<int>>> allele_hamming_maps;
 
         std::map<std::string, kmer_count_map> genotype_kmer_counts;
         std::map<std::string, std::vector<std::string>> genotytpe_kmer_vectors;
@@ -343,11 +366,81 @@ int countMain(int argc, char** argv) {
             kmer_count_map single_allele_kmer_counts = count_kmers(alleles[a].sequence, k_values[k]);
             allele_kmer_counts[alleles[a].name.c_str()] = single_allele_kmer_counts;
             for (auto iter = single_allele_kmer_counts.begin(); iter != single_allele_kmer_counts.end(); ++iter) {
-                union_allele_kmers.insert(iter->first);
-                allele_kmer_vectors[alleles[a].name.c_str()].push_back(iter->first);
+                std::string kmer = iter->first;
+                union_allele_kmers.insert(kmer);
+                allele_kmer_vectors[alleles[a].name.c_str()].push_back(kmer);
+                for (size_t i = 0; i < kmer.size(); ++i) {
+                    std::vector<char> nucleotides { 'A', 'C', 'G', 'T' };
+                    char n = kmer[i];
+                    auto it = std::find(nucleotides.begin(), nucleotides.end(), n); 
+                    auto index = std::distance(nucleotides.begin(), it);
+                    nucleotides.erase (nucleotides.begin()+index);
+                    fprintf(stderr, "%s %zu %c ", kmer.c_str(), i, n);
+                    // fprintf(stderr, "%c, %zu\n", n, index);
+                    for (size_t j = 0; j < nucleotides.size(); ++j) {
+                        std::string hamming_kmer = kmer;
+                        hamming_kmer.replace(hamming_kmer.begin()+i, hamming_kmer.begin()+i, nucleotides[j]);
+                        //fprintf(stderr, "%c", nucleotides[j]);
+                        //out_vector.push_back(ham_kmer);
+                        fprintf(stderr, "%s", hamming_kmer.c_str());
+                    }
+                    fprintf(stderr, "\n");
+
+
+
+
+
+
+
+                    // fprintf(stderr, "%zu\n", iterator_idx - nucleotides_begin());
+                    // size_t index = std::distance(nucleotides.begin(), idx);
+                    // nucleotides.erase (nucleotides.begin()+index);
+                    
+                    
+                    
+                    
+                    
+                    
+                    // fprintf(stderr, "%s %c\n", kmer.c_str(), n);
+
+
+
+
+
+
+
+
+
+                }
             }
-            allele_kmer_indices[alleles[a].name.c_str()] = index_kmers(allele_kmer_vectors[alleles[a].name.c_str()]);
+            //allele_kmer_indices[alleles[a].name.c_str()] = index_kmers(allele_kmer_vectors[alleles[a].name.c_str()]);
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// std::vector<std::string> out_vector;
+//     //fprintf(stderr, "kmer %s: ", kmer.c_str);
+//     for (size_t i = 0; i < kmer.size(); ++i) {
+//         std::vector<char> nucleotides { 'A', 'C', 'G', 'T' };
+//         char n = kmer[i];
+//         fprintf(stderr, "%s %c\n", kmer.c_str(), n);
+
+
+
+
 
         // Combine profiles for diploid genotypes if applicable
         if (is_diploid) {
@@ -360,6 +453,9 @@ int countMain(int argc, char** argv) {
                 genotype_kmer_counts[genotype_name] = combined_alelle_map;
             }
         }
+
+        // Get all edit distance = 1 kmers
+
 
 
         //
