@@ -382,11 +382,6 @@ int countMain(int argc, char** argv) {
             allele_kmer_index[union_allele_kmers_vector[i]] = i;
         }
 
-
-        // for (auto iter = allele_kmer_index.begin(); iter != allele_kmer_index.end(); ++iter) {
-        //     fprintf(output, "%s: %zu\n", iter->first.c_str(), iter->second);
-        // }
-
         // Get hamming kmer indexes
         for (size_t i = 0; i < union_allele_kmers_vector.size(); ++i) {
             for (auto iter : get_hamming_kmers(union_allele_kmers_vector[i])) {
@@ -396,29 +391,6 @@ int countMain(int argc, char** argv) {
                 }
             }
         }
-        fprintf(stderr, "allele kmer index\n");
-        for (auto iter = allele_kmer_index.begin(); iter != allele_kmer_index.end(); ++iter) {
-            fprintf(stderr, "%s: %zu\n", iter->first.c_str(), iter->second);
-        }
-
-        fprintf(stderr, "\n\n");
-        fprintf(stderr, "allele hamming index\n");
-
-        for (auto iter = allele_hamming_index.begin(); iter != allele_hamming_index.end(); ++iter) {
-            fprintf(stderr, "%s: ", iter->first.c_str());
-            for (auto iter2 : iter->second) {
-                fprintf(stderr, "%zu ",iter2);
-            } 
-            fprintf(stderr, "\n");
-
-        }
-        fprintf(stderr, "\n");
-
-
-
-
-
-
 
 
 
