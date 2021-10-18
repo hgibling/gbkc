@@ -78,9 +78,26 @@ double log_factorial(size_t c)
     return result;
 }
 
-// Poisson distribution probability mass function (from Jared Simpson)
+// Log Binomial coefficient
+double log_binomial_coefficient(size_t n, size_t k) 
+{
+    // Binomial coefficient is n! / (k! * (n -k)!)
+    double result = log_factorial(n) - (log_factorial(k) + log_factorial(n - k));
+    return result;
+}
+
+// Log Binomial distribution probability mass function
+double log_binomial_pmf(size_t n, size_t k, double probability)
+{
+    // Binomial pmf is (n choose k) * p^k * (1-p)^(n-k)
+    double result = log_binomial_coefficient(n, k) + (k * log(probability)) + ((n-k) * log(1-probability));
+    return(result);
+}
+
+// Log Poisson distribution probability mass function (from Jared Simpson)
 double log_poisson_pmf(const double c, const double lambda)
 {
+    // Poisson pmf is (lam^k * e^-lam) / k!
     double f_c = log_factorial(c);
     double p = (double)c * log(lambda) - lambda - f_c;
     return p;
@@ -114,6 +131,17 @@ double score_profile(const kmer_count_map& read_map, const kmer_count_map& allel
     }
     return score;
 }
+
+// // Binomial kmer likelihood
+// double bionimal_kmer_likelihood(size_t kmer_count_alleles, std::vector<std::string> union_allele_kmers, double sequencing_error, size_t hamming_distance)
+// {
+//     double kmer_probability = kmer_count / len(union_allele_kmers);
+//     double error = 
+//     double error_free_portion = kmer_probability * (1 - sequencing )
+//     double hamming_portion = 
+// }
+
+
 
 
 //
@@ -378,11 +406,13 @@ int countMain(int argc, char** argv) {
         std::vector<std::string> union_allele_kmers_vector(union_allele_kmers.begin(), union_allele_kmers.end());
 
         // Get allele kmer indexes
+        // TODO: should this be indexed in alphabetical order?
         for (size_t i = 0; i < union_allele_kmers_vector.size(); ++i) {
             allele_kmer_index[union_allele_kmers_vector[i]] = i;
         }
 
         // Get hamming kmer indexes
+        // index corresponds to the index value of the allele kmers
         for (size_t i = 0; i < union_allele_kmers_vector.size(); ++i) {
             for (auto iter : get_hamming_kmers(union_allele_kmers_vector[i])) {
                 if (std::find(union_allele_kmers_vector.begin(), union_allele_kmers_vector.end(), iter) != union_allele_kmers_vector.end()) {
@@ -406,7 +436,14 @@ int countMain(int argc, char** argv) {
 //             }
 //         }
 
-//         // Get all edit distance = 1 kmers
+
+
+
+
+
+
+
+
 
 
 
