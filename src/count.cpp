@@ -39,7 +39,7 @@ kmer_count_map index_kmers(const std::vector<std::string>& allele_kmer_vector)
 }
 
 // Get all kmers within specified edit/hamming distance
-std::vector<std::string> get_hamming_kmers(std::string kmer)
+std::vector<std::string> get_hamming_kmers(std::string& kmer)
 {
     std::vector<std::string> out_vector;
     for (size_t i = 0; i < kmer.size(); ++i) {
@@ -79,7 +79,7 @@ double log_factorial(size_t c)
 }
 
 // Log Binomial coefficient
-double log_binomial_coefficient(size_t n, size_t k) 
+double log_binomial_coefficient(const size_t n, const size_t k) 
 {
     // Binomial coefficient is n! / (k! * (n -k)!)
     double result = log_factorial(n) - (log_factorial(k) + log_factorial(n - k));
@@ -87,7 +87,7 @@ double log_binomial_coefficient(size_t n, size_t k)
 }
 
 // Log Binomial distribution probability mass function
-double log_binomial_pmf(size_t n, size_t k, double probability)
+double log_binomial_pmf(const size_t n, const size_t k, const double probability)
 {
     // Binomial pmf is (n choose k) * p^k * (1-p)^(n-k)
     double result = log_binomial_coefficient(n, k) + (k * log(probability)) + ((n-k) * log(1-probability));
