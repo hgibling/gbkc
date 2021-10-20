@@ -39,24 +39,18 @@ kmer_count_map index_kmers(const std::vector<std::string>& allele_kmer_vector)
 }
 
 // Get all kmers within specified edit/hamming distance
-std::vector<std::string> get_hamming_kmers(std::string& kmer)
+std::vector<std::string> get_hamming_kmers(std::string& kmer, const size_t k)
 {
     std::vector<std::string> out_vector;
-    for (size_t i = 0; i < kmer.size(); ++i) {
-        // std::vector<char> nucleotides = {'A', 'C', 'G', 'T'};
-        std::vector<std::string> nucleotides = {"A", "C", "G", "T"};
-        // convert nucelotide at position i from char to string
-        std::string n (1, kmer[i]);
-        // find position of n in nucleotides vector
-        size_t position_n;
-        auto iter = find(nucleotides.begin(), nucleotides.end(), n);
-        position_n = iter - nucleotides.begin();
-        nucleotides.erase(nucleotides.begin() + position_n);
-        // replace nucleotide at position i with remaining nucleotides
-        for (auto iter2 : nucleotides) {
-            std::string ham_kmer = kmer.replace(i, 1, iter2);
-            out_vector.push_back(ham_kmer);
+    for (size_t i = 0; i < k; i++) {
+        char original = kmer[i];
+        for (size_t j = 0; j < 4; ++j) {
+            char ham = "ACGT"[j];
+            if (ham == original) continue;
+            kmer[i] = ham;
+            out_vector.push_back(kmer);
         }
+        kmer[i] = original;
     }
     return out_vector;
 }
@@ -72,7 +66,7 @@ double calculate_lambda(const double read_length, const size_t k, const double c
 double log_factorial(size_t c)
 {
     double result = 0;
-    while(c > 0) {
+    while (c > 0) {
         result += log(c--); //slow
     }
     return result;
@@ -133,12 +127,16 @@ double score_profile(const kmer_count_map& read_map, const kmer_count_map& allel
 }
 
 // // Binomial kmer likelihood
-// double bionimal_kmer_likelihood(size_t kmer_count_alleles, std::vector<std::string> union_allele_kmers, double sequencing_error, size_t hamming_distance)
+// double bionimal_kmer_likelihood(const std::string& kmer, const size_t kmer_length, const std::map<std::string, std::vector<size_t>>& allele_hamming_index, const std::map<std::string, kmer_count_map>& allele_kmer_counts, const size_t total_allele_kmer_number, const std::string& allele_sequence, const double sequencing_error, const size_t hamming_distance)
 // {
-//     double kmer_probability = kmer_count / len(union_allele_kmers);
-//     double error = 
-//     double error_free_portion = kmer_probability * (1 - sequencing )
-//     double hamming_portion = 
+//     size_t kmer_count = // look up kmer in allele_kmer_counts
+//     double log_kmer_probability = log(kmer_count / total_allele_kmer_number);
+//     double log_error = log_binomial_pmf(kmer_length, 1, sequencing_error);
+//     double log_error_free_portion = log_kmer_probability + log(1 - exp(log_error));
+//     // iterate through all hamming kmers that exist in allele kmer list
+//     double log_hamming_kmer_probability;
+//     for (auto iter )
+//     double log_hamming_portion = // hamming set * error / 3kmer_length;
 // }
 
 
@@ -374,7 +372,7 @@ int countMain(int argc, char** argv) {
 
 
         //
-        // Count k-mers get hamming k-mers in alleles/genotypes 
+        // Count k-mers and get hamming k-mers in alleles/genotypes 
         //
 
         // All k-mer counts in each allele/genotype
@@ -387,6 +385,7 @@ int countMain(int argc, char** argv) {
         // Hamming k-mer data
         std::map<std::string, size_t> allele_kmer_index;
         std::map<std::string, std::vector<size_t>> allele_hamming_index;
+        std::map<std::string, std::vector<std::string>> allele_hamming_kmers;
 
         // std::map<std::string, size_t> genotype_kmer_index
         // std::map<std::string, std::vector<size_t>> genotype_hamming_index
@@ -405,6 +404,18 @@ int countMain(int argc, char** argv) {
         // Convert union kmer set to indexable vector
         std::vector<std::string> union_allele_kmers_vector(union_allele_kmers.begin(), union_allele_kmers.end());
 
+        // Get hamming kmers for all allele kmers
+        for (size_t i = 0; i < union_allele_kmers_vector.size(); ++i) {
+            for (auto iter : get_hamming_kmers(union_allele_kmers_vector[i], k_values[k])) {
+                if (std::find(union_allele_kmers_vector.begin(), union_allele_kmers_vector.end(), iter) != union_allele_kmers_vector.end()) {
+                    allele_hamming_kmers[union_allele_kmers_vector[i]].push_back(iter);
+                }
+            // if (allele_hamming_kmers[union_allele_kmers_vector[i]].empty()) {
+            //     allele_hamming_kmers[union_allele_kmers_vector[i]].push_back("none");
+            }
+        }
+
+
         // Get allele kmer indexes
         // TODO: should this be indexed in alphabetical order?
         for (size_t i = 0; i < union_allele_kmers_vector.size(); ++i) {
@@ -414,13 +425,15 @@ int countMain(int argc, char** argv) {
         // Get hamming kmer indexes
         // index corresponds to the index value of the allele kmers
         for (size_t i = 0; i < union_allele_kmers_vector.size(); ++i) {
-            for (auto iter : get_hamming_kmers(union_allele_kmers_vector[i])) {
+            for (auto iter : get_hamming_kmers(union_allele_kmers_vector[i], k_values[k])) {
                 if (std::find(union_allele_kmers_vector.begin(), union_allele_kmers_vector.end(), iter) != union_allele_kmers_vector.end()) {
                     size_t idx  = allele_kmer_index[iter];
                     allele_hamming_index[union_allele_kmers_vector[i]].push_back(idx);
                 }
             }
         }
+        
+
 
 
 
