@@ -24,6 +24,7 @@
 #include "kseq.h"
 
 using std::cout;
+using std::greater;
 using std::istringstream;
 using std::pair;
 using std::map;
@@ -115,6 +116,7 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -m       method for calculating lambda (from coverage and error rate, or from flank k-mer counts; one of: coverage, mean, median)\n"
 "       -M       manual lambda entry (overrides lambda method selection)\n"
 "       -f       multi-fasta file of the two flanking sequences surrounding region of interest\n"
+"       -N       print only the top N scores per k-mer (default: print all)\n"
 "       -o       output file name (default: results.csv)\n"
 "       -t       number of threads (default: 1)\n";
 
@@ -138,6 +140,7 @@ int countMain(int argc, char** argv) {
     string input_alleles_file;
     string input_reads_file1;
     string input_reads_file2;
+    bool is_diploid = false;
     size_t lower_k = 11;
     size_t upper_k = 0;
     size_t increment_k = 4;
@@ -148,16 +151,17 @@ int countMain(int argc, char** argv) {
     string lambda_method;
     double manual_lambda = -1;       // temporary for troubleshooting
     string input_flanks_file;
+    int top_N = -1;
     string output_name = "count-results.csv";
-    bool is_diploid = false;
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:L:m:M:f:o:dt:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:dk:K:i:l:e:c:L:m:M:f:N:o:t:", NULL, NULL)) != -1;) {
         istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case '1': arg >> input_reads_file1; break;
             case '2': arg >> input_reads_file2; break;
+            case 'd': is_diploid = true; break;
             case 'k': arg >> lower_k; break;
             case 'K': arg >> upper_k; break;
             case 'i': arg >> increment_k; break;
@@ -168,8 +172,8 @@ int countMain(int argc, char** argv) {
             case 'm': arg >> lambda_method; break;
             case 'M': arg >> manual_lambda; break;     // temporary for troubleshooting
             case 'f': arg >> input_flanks_file; break;
+            case 'N': arg >> top_N; break;
             case 'o': arg >> output_name; break;
-            case 'd': is_diploid = true; break;
             case 't': arg >> num_threads; break;
             default: exit(EXIT_FAILURE);
         }
@@ -526,7 +530,6 @@ int countMain(int argc, char** argv) {
         //
 
         map<string, double> all_scores;
-
         if (!is_diploid) {
             for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
                 string a = *iter;
@@ -547,10 +550,21 @@ int countMain(int argc, char** argv) {
 
         #pragma omp critical
         {
+            // Create vector to store score:genotype values, sort and print top N
+            vector<pair<double, string>> all_scores_vector;
             for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
-                fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
+                all_scores_vector.push_back(make_pair(iter->second, iter->first));
             }
 
+            sort(all_scores_vector.begin(), all_scores_vector.end(), greater<pair<int, string>>());
+            int N_printed = 0;
+            for (size_t i = 0; i < all_scores_vector.size(); ++i) {
+                fprintf(output, "%zu,%s,%f\n", k_values[k], all_scores_vector[i].second.c_str(), all_scores_vector[i].first);
+                N_printed += 1;
+                if (top_N > 0 && N_printed == top_N) {
+                    break;
+                }
+            }
 
             // Re-adjust manual lambda if diploid so it can be recalculated correctly for next k
             if (is_diploid) {
