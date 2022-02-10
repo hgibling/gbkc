@@ -23,6 +23,16 @@
 #include "count.h"
 #include "kseq.h"
 
+using std::cout;
+using std::istringstream;
+using std::pair;
+using std::map;
+using std::set;
+using std::sort;
+using std::string;
+using std::unordered_set;
+using std::vector;
+
 
 //
 // Define functions
@@ -66,12 +76,12 @@ double score_kmer(const size_t read_count, const size_t allele_count, const doub
 }
 
 // Score read k-mer count proflile against allele k-mer count profile
-double score_profile(const kmer_count_map& read_map, const kmer_count_map& allele_map, const std::unordered_set<std::string>& allele_union_kmers, const double lambda, const double lambda_error)
+double score_profile(const kmer_count_map& read_map, const kmer_count_map& allele_map, const unordered_set<string>& allele_union_kmers, const double lambda, const double lambda_error)
 {
     double score = 0;
     double single_score = 0;
     for (auto iter = allele_union_kmers.begin(); iter != allele_union_kmers.end(); ++iter) {
-        std::string kmer = *iter;
+        string kmer = *iter;
         auto read_iter = read_map.find(kmer);
         size_t kmer_count_in_read = read_iter != read_map.end() ? read_iter->second : 0;
         auto allele_iter = allele_map.find(kmer);
@@ -116,7 +126,7 @@ static const char *COUNT_USAGE_MESSAGE =
 int countMain(int argc, char** argv) {
 
     if(argc <= 1) {
-        std::cout << COUNT_USAGE_MESSAGE;
+        cout << COUNT_USAGE_MESSAGE;
         return 0;
     };
 
@@ -125,9 +135,9 @@ int countMain(int argc, char** argv) {
     // Read command line arguments
     //
 
-    std::string input_alleles_file;
-    std::string input_reads_file1;
-    std::string input_reads_file2;
+    string input_alleles_file;
+    string input_reads_file1;
+    string input_reads_file2;
     size_t lower_k = 11;
     size_t upper_k = 0;
     size_t increment_k = 4;
@@ -135,15 +145,15 @@ int countMain(int argc, char** argv) {
     double sequencing_error = -1;
     double coverage = -1;
     double lambda_error = 1;
-    std::string lambda_method;
+    string lambda_method;
     double manual_lambda = -1;       // temporary for troubleshooting
-    std::string input_flanks_file;
-    std::string output_name = "count-results.csv";
+    string input_flanks_file;
+    string output_name = "count-results.csv";
     bool is_diploid = false;
     size_t num_threads = 1;
 
     for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:L:m:M:f:o:dt:", NULL, NULL)) != -1;) {
-        std::istringstream arg(optarg != NULL ? optarg : "");
+        istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case '1': arg >> input_reads_file1; break;
@@ -225,23 +235,23 @@ int countMain(int argc, char** argv) {
     // TODO: Handle case where file names are null
 
     // Get allele sequences
-    std::vector<sequence_record> alleles = read_sequences_from_file(input_alleles_file);
+    vector<sequence_record> alleles = read_sequences_from_file(input_alleles_file);
 
     // Get list of allele names
-    std::set<std::string> allele_names;
+    set<string> allele_names;
     for (size_t i = 0; i < alleles.size(); ++i) {
         allele_names.insert(alleles[i].name.c_str());
     }
 
     // Get read sequences
-    std::vector<sequence_record> reads1 = read_sequences_from_file(input_reads_file1);
-    std::vector<sequence_record> reads2;
+    vector<sequence_record> reads1 = read_sequences_from_file(input_reads_file1);
+    vector<sequence_record> reads2;
     if (!input_reads_file2.empty()) {
         reads2 = read_sequences_from_file(input_reads_file2);
     }
 
     // Get flank sequences
-    std::vector<sequence_record> flanks = read_sequences_from_file(input_flanks_file);
+    vector<sequence_record> flanks = read_sequences_from_file(input_flanks_file);
 
 
     //
@@ -275,13 +285,13 @@ int countMain(int argc, char** argv) {
     // Determine all possible genotypes if needed
     //
 
-    std::set<std::string> genotype_names;
-    std::vector<std::pair<std::string, std::string>> genotypes;
+    set<string> genotype_names;
+    vector<pair<string, string>> genotypes;
 
     if (is_diploid) {
         genotypes = pairwise_comparisons(allele_names, true);
         for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
-            std::string name = iter->first + "/" + iter->second;
+            string name = iter->first + "/" + iter->second;
             genotype_names.insert(name);
         }
     }
@@ -292,7 +302,7 @@ int countMain(int argc, char** argv) {
     //
 
     // Get all values of k
-    std::vector<size_t> k_values;
+    vector<size_t> k_values;
 
     size_t counter = lower_k;
     while (counter < upper_k) {
@@ -317,16 +327,16 @@ int countMain(int argc, char** argv) {
         //
 
         // All k-mers in each allele/genotype
-        std::map<std::string, kmer_count_map> allele_kmer_counts;
-        std::map<std::string, kmer_count_map> genotype_kmer_counts;
+        map<string, kmer_count_map> allele_kmer_counts;
+        map<string, kmer_count_map> genotype_kmer_counts;
 
 
         // Union of k-mers from all alleles
-        std::unordered_set<std::string> allele_kmers;
+        unordered_set<string> allele_kmers;
 
         // Iterate over each allele
         for (size_t a = 0; a < alleles.size(); ++a) {
-            std::map<std::string, size_t> single_allele_kmer_counts = count_kmers(alleles[a].sequence, k_values[k]);
+            map<string, size_t> single_allele_kmer_counts = count_kmers(alleles[a].sequence, k_values[k]);
             allele_kmer_counts[alleles[a].name.c_str()] = single_allele_kmer_counts;
             for (auto iter = single_allele_kmer_counts.begin(); iter != single_allele_kmer_counts.end(); ++iter) {
                 allele_kmers.insert(iter->first);
@@ -340,7 +350,7 @@ int countMain(int argc, char** argv) {
                 for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
                     combined_alelle_map[iter2->first] += iter2->second;
                 }
-                std::string genotype_name = iter1->first + "/" + iter1->second;
+                string genotype_name = iter1->first + "/" + iter1->second;
                 genotype_kmer_counts[genotype_name] = combined_alelle_map;
             }
         }
@@ -351,7 +361,7 @@ int countMain(int argc, char** argv) {
         //
 
         // k-mers and counts for each read
-        std::map<std::string, kmer_count_map> each_read_kmer_counts;
+        map<string, kmer_count_map> each_read_kmer_counts;
 
         // k-mers and counts across all reads
         kmer_count_map all_reads_kmer_counts;
@@ -359,7 +369,7 @@ int countMain(int argc, char** argv) {
         // Iterate over each read
         for (size_t r = 0; r < reads1.size(); ++r) {
             if (reads1[r].sequence.length() > k_values[k]) {
-                std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads1[r].sequence, k_values[k]);
+                map<string, size_t> single_read_kmer_counts = count_kmers(reads1[r].sequence, k_values[k]);
                 each_read_kmer_counts[reads1[r].name.c_str()] = single_read_kmer_counts;
                 for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
                     all_reads_kmer_counts[iter->first] += iter->second;
@@ -369,7 +379,7 @@ int countMain(int argc, char** argv) {
         if (!input_reads_file2.empty()) {
             for (size_t r = 0; r < reads2.size(); ++r) {
                 if (reads2[r].sequence.length() > k_values[k]) {
-                    std::map<std::string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, k_values[k]);
+                    map<string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, k_values[k]);
                     each_read_kmer_counts[reads2[r].name.c_str()] = single_read_kmer_counts;
                     for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
                         all_reads_kmer_counts[iter->first] += iter->second;
@@ -414,7 +424,7 @@ int countMain(int argc, char** argv) {
             }
 
             // Get vector of k-mers in flank sequences
-            std::vector<std::string> flank_kmers;
+            vector<string> flank_kmers;
             for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
                 flank_kmers.push_back(iter->first);
             }
@@ -422,7 +432,7 @@ int countMain(int argc, char** argv) {
             // Get counts from k-mers unique to flank sequences
             kmer_count_map flank_unqiue_kmer_counts;
             for (auto iter = flank_kmers.begin(); iter != flank_kmers.end(); ++iter) {
-                std::string flank_kmer = *iter;
+                string flank_kmer = *iter;
                 auto flank_iter = allele_kmers.find(flank_kmer);
                 if (flank_iter == allele_kmers.end()) {
                     flank_unqiue_kmer_counts[flank_kmer] = combined_flanks_counts[flank_kmer];
@@ -436,7 +446,7 @@ int countMain(int argc, char** argv) {
             // Get counts for flank-unique k-mers in reads
             kmer_count_map all_reads_flank_kmer_counts;
             for (auto iter = flank_unqiue_kmer_counts.begin(); iter != flank_unqiue_kmer_counts.end(); ++iter) {
-                std::string flank_kmer = iter->first;
+                string flank_kmer = iter->first;
                 auto read_iter = all_reads_kmer_counts.find(flank_kmer);
                 size_t flank_kmer_count_in_read = read_iter != all_reads_kmer_counts.end() ? read_iter->second : 0;
                 all_reads_flank_kmer_counts[flank_kmer] = flank_kmer_count_in_read;
@@ -444,7 +454,7 @@ int countMain(int argc, char** argv) {
 
             // Calculate estimated lambda
             double estimated_lambda_sum = 0;
-            std::vector<double> read_flank_kmers_lambda;
+            vector<double> read_flank_kmers_lambda;
             for (auto iter = flank_unqiue_kmer_counts.begin(); iter != flank_unqiue_kmer_counts.end(); ++iter) {
                 // k-mer count in reads / k-mer count in flank sequences
                 double est_lambda = all_reads_flank_kmer_counts[iter->first] / iter->second;
@@ -454,7 +464,7 @@ int countMain(int argc, char** argv) {
             // Lambda mean
             estimated_lambda_mean = estimated_lambda_sum / read_flank_kmers_lambda.size();
             // Lambda median
-            std::sort(read_flank_kmers_lambda.begin(), read_flank_kmers_lambda.end());
+            sort(read_flank_kmers_lambda.begin(), read_flank_kmers_lambda.end());
             size_t median_position = read_flank_kmers_lambda.size() / 2;
                 // value is rounded down if vector size is odd -- correct position for 0-based indexing
             if ((read_flank_kmers_lambda.size() % 2) == 0) {
@@ -515,17 +525,17 @@ int countMain(int argc, char** argv) {
         // Score k-mer count profiles for each allele/genotype
         //
 
-        std::map<std::string, double> all_scores;
+        map<string, double> all_scores;
 
         if (!is_diploid) {
             for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
-                std::string a = *iter;
+                string a = *iter;
                 all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
             }
         }
         else if (is_diploid) {
             for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
-                std::string g = *iter;
+                string g = *iter;
                 all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
             }
         }

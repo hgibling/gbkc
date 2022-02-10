@@ -17,6 +17,16 @@
 #include "check-profiles.h"
 #include "kseq.h"
 
+using std::cout;
+using std::equal;
+using std::istringstream;
+using std::make_pair;
+using std::map;
+using std::pair;
+using std::set;
+using std::string;
+using std::vector;
+
 
 //
 // Define functions
@@ -42,10 +52,10 @@ char complement(const char nucleotide)
 }
 
 // Get reverse complement of a sequence
-std::string reverse_complement(const std::string& sequence)
+string reverse_complement(const string& sequence)
 {
     size_t length = sequence.size();
-    std::string out_reverse_complement(length, 'X');
+    string out_reverse_complement(length, 'X');
     for (size_t i = 0; i < length; ++i) {
         out_reverse_complement[i] = complement(sequence[length - i - 1]);
     }
@@ -53,21 +63,21 @@ std::string reverse_complement(const std::string& sequence)
 }
 
 // Get the lexicographically lowest k-mer between it and its reverse complement
-std::string canonical_kmer(const std::string& kmer)
+string canonical_kmer(const string& kmer)
 {
-    std::string reverse_complement_kmer = reverse_complement(kmer);
+    string reverse_complement_kmer = reverse_complement(kmer);
     return kmer < reverse_complement_kmer ? kmer : reverse_complement_kmer;
 }
 
 // Obtain all (canonical) k-mers and their counts from a sequence
-kmer_count_map count_kmers(const std::string& sequence, const size_t k)
+kmer_count_map count_kmers(const string& sequence, const size_t k)
 {
     kmer_count_map out_map;
     char N_char = 'N';
     for (size_t i = 0; i < sequence.size() - k + 1; ++i) {
-        std::string canon_kmer = canonical_kmer(sequence.substr(i, k));
+        string canon_kmer = canonical_kmer(sequence.substr(i, k));
 	// Only keep k-mers without Ns
-	if (canon_kmer.find(N_char) == std::string::npos) {
+	if (canon_kmer.find(N_char) == string::npos) {
 		out_map[canon_kmer] += 1;
 	}
     }
@@ -75,7 +85,7 @@ kmer_count_map count_kmers(const std::string& sequence, const size_t k)
 }
 
 // Read input files
-std::vector<sequence_record> read_sequences_from_file(const std::string& input_filename)
+vector<sequence_record> read_sequences_from_file(const string& input_filename)
 {
     // Open readers
     FILE* read_fp = fopen(input_filename.c_str(), "r");
@@ -90,7 +100,7 @@ std::vector<sequence_record> read_sequences_from_file(const std::string& input_f
         exit(EXIT_FAILURE);
     }
 
-    std::vector<sequence_record> out_sequences;
+    vector<sequence_record> out_sequences;
     int ret = 0;
     kseq_t* seq = kseq_init(gz_read_fp);
     while((ret = kseq_read(seq)) >= 0) {
@@ -108,7 +118,7 @@ template <typename Map>
 bool compare_profiles(const Map& first_map, const Map& second_map)
 {
     return first_map.size() == second_map.size()
-        && std::equal(first_map.begin(), first_map.end(),
+        && equal(first_map.begin(), first_map.end(),
                       second_map.begin());
 }
 
@@ -116,7 +126,7 @@ bool compare_profiles(const Map& first_map, const Map& second_map)
 kmer_comparison_map kmer_differences(const kmer_count_map& first_map, const kmer_count_map& second_map)
 {
     kmer_comparison_map kmer_differences_out;
-    std::set<std::string> all_kmers;
+    set<string> all_kmers;
     for (auto iter1 = first_map.begin(); iter1 != first_map.end(); ++iter1) {
         all_kmers.insert(iter1->first);
     }
@@ -135,17 +145,17 @@ kmer_comparison_map kmer_differences(const kmer_count_map& first_map, const kmer
 }
 
 // Generate all possible comparisons of two alleles
-std::vector<std::pair<std::string, std::string>> pairwise_comparisons(const std::set<std::string>& alleles, bool same)
+vector<pair<string, string>> pairwise_comparisons(const set<string>& alleles, bool same)
 {
-    std::vector<std::pair<std::string, std::string>> pairs;
-    std::vector<std::string> alleles_vector(alleles.begin(), alleles.end());
+    vector<pair<string, string>> pairs;
+    vector<string> alleles_vector(alleles.begin(), alleles.end());
     for (size_t i = 0; i < alleles_vector.size(); ++i) {
         for (size_t j = 0; j < alleles_vector.size(); ++j) {
             if ((same == true) and (i <= j)) {
-                pairs.push_back(std::make_pair(alleles_vector[i], alleles_vector[j]));
+                pairs.push_back(make_pair(alleles_vector[i], alleles_vector[j]));
             }
             else if (i < j) {
-                pairs.push_back(std::make_pair(alleles_vector[i], alleles_vector[j]));
+                pairs.push_back(make_pair(alleles_vector[i], alleles_vector[j]));
             }
         }
     }
@@ -153,12 +163,12 @@ std::vector<std::pair<std::string, std::string>> pairwise_comparisons(const std:
 }
 
 // Split a diploid genotype into a vector of its alleles
-std::vector<std::string> genotype_split(const std::string genotype, const char delimiter)
+vector<string> genotype_split(const string genotype, const char delimiter)
 {
     size_t position = genotype.find(delimiter);
-    std::string allele1 = genotype.substr(0, position);
-    std::string allele2 = genotype.substr(position + 1, genotype.size());
-    std::vector<std::string> out = {allele1, allele2};
+    string allele1 = genotype.substr(0, position);
+    string allele2 = genotype.substr(position + 1, genotype.size());
+    vector<string> out = {allele1, allele2};
     return out;
 }
 
@@ -186,7 +196,7 @@ static const char *CHECK_PROFILES_USAGE_MESSAGE =
 int checkprofilesMain(int argc, char** argv) {
 
     if(argc <= 1) {
-        std::cout << CHECK_PROFILES_USAGE_MESSAGE;
+        cout << CHECK_PROFILES_USAGE_MESSAGE;
         return 0;
     };
 
@@ -195,7 +205,7 @@ int checkprofilesMain(int argc, char** argv) {
     // Read command line arguments
     //
 
-    std::string input_alleles_file;
+    string input_alleles_file;
     size_t lower_range = 3;
     size_t upper_range = 0;
     bool is_diploid = false;
@@ -204,7 +214,7 @@ int checkprofilesMain(int argc, char** argv) {
 
 
     for (char c; (c = getopt_long(argc, argv, "a:l:u:dvp", NULL, NULL)) != -1;) {
-        std::istringstream arg(optarg != NULL ? optarg : "");
+        istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case 'l': arg >> lower_range; break;
@@ -235,10 +245,10 @@ int checkprofilesMain(int argc, char** argv) {
     // TODO: Handle case where file names are null
 
     // Get allele sequences
-    std::vector<sequence_record> alleles = read_sequences_from_file(input_alleles_file);
+    vector<sequence_record> alleles = read_sequences_from_file(input_alleles_file);
 
     // Get list of allele names
-    std::set<std::string> allele_names;
+    set<string> allele_names;
     for (size_t i = 0; i < alleles.size(); ++i) {
         allele_names.insert(alleles[i].name.c_str());
     }
@@ -249,9 +259,9 @@ int checkprofilesMain(int argc, char** argv) {
     //
 
     // // Get list of allele comparisons to make
-    std::vector<std::pair<std::string, std::string>> allele_pairs;
-    std::vector<std::pair<std::string, std::string>> genotype_pairs;
-    std::vector<std::pair<std::string, std::string>> genotypes;
+    vector<pair<string, string>> allele_pairs;
+    vector<pair<string, string>> genotype_pairs;
+    vector<pair<string, string>> genotypes;
 
     if (!is_diploid) {
         allele_pairs = pairwise_comparisons(allele_names, false);
@@ -259,9 +269,9 @@ int checkprofilesMain(int argc, char** argv) {
 
     else if (is_diploid) {
         genotypes = pairwise_comparisons(allele_names, true);
-        std::set<std::string> genotype_names;
+        set<string> genotype_names;
         for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
-            std::string name = iter->first + "/" + iter->second;
+            string name = iter->first + "/" + iter->second;
             genotype_names.insert(name);
         }
         genotype_pairs = pairwise_comparisons(genotype_names, false);
@@ -273,8 +283,8 @@ int checkprofilesMain(int argc, char** argv) {
         fprintf(stderr, "Testing k = %zu... \n", k);
 
         // All k-mers in each allele or genotype
-        std::map<std::string, kmer_count_map> allele_kmer_counts;
-        std::map<std::string, kmer_count_map> genotype_kmer_counts;
+        map<string, kmer_count_map> allele_kmer_counts;
+        map<string, kmer_count_map> genotype_kmer_counts;
 
         // Get count profiles for each allele
         for (size_t a = 0; a < alleles.size(); ++a) {
@@ -290,7 +300,7 @@ int checkprofilesMain(int argc, char** argv) {
                 for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
                     combined_alelle_map[iter2->first] += iter2->second;
                 }
-                std::string genotype_name = iter1->first + "/" + iter1->second;
+                string genotype_name = iter1->first + "/" + iter1->second;
                 genotype_kmer_counts[genotype_name] = combined_alelle_map;
             }
         }
@@ -319,19 +329,19 @@ int checkprofilesMain(int argc, char** argv) {
             printf("Testing k = %zu... \n", k);
 
             // Check if k-mer count profiles are unique amongst all alleles
-            std::vector<std::pair<std::string, std::string>> identical_profiles;
+            vector<pair<string, string>> identical_profiles;
 
             // k-mer comparison map
-            std::map<std::string, kmer_comparison_map> kmer_comparisons;
+            map<string, kmer_comparison_map> kmer_comparisons;
 
             if (!is_diploid) {
                 for (auto iter = allele_pairs.begin(); iter != allele_pairs.end(); ++iter) {
                     bool allele_vs_allele = compare_profiles(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
                     if (allele_vs_allele == 1) {
-                        identical_profiles.push_back(std::make_pair(iter->first, iter->second));
+                        identical_profiles.push_back(make_pair(iter->first, iter->second));
                     }
                     if (is_verbose == true && allele_vs_allele == 0) {
-                        std::string compared_alleles = iter->first + "," + iter->second;
+                        string compared_alleles = iter->first + "," + iter->second;
                         kmer_comparisons[compared_alleles] = kmer_differences(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
                     }
                 }
@@ -341,10 +351,10 @@ int checkprofilesMain(int argc, char** argv) {
                 for (auto iter = genotype_pairs.begin(); iter != genotype_pairs.end(); ++iter) {
                     bool genotype_vs_genotype = compare_profiles(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
                     if (genotype_vs_genotype == 1) {
-                        identical_profiles.push_back(std::make_pair(iter->first, iter->second));
+                        identical_profiles.push_back(make_pair(iter->first, iter->second));
                     }
                     if (is_verbose == true && genotype_vs_genotype == 0) {
-                        std::string compared_genotypes = iter->first + "," + iter->second;
+                        string compared_genotypes = iter->first + "," + iter->second;
                         kmer_comparisons[compared_genotypes] = kmer_differences(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
                     }
                 }
