@@ -552,10 +552,10 @@ int countMain(int argc, char** argv) {
             }
 
 
-        // Re-adjust manual lambda if diploid so it can be recalculated correctly for next k
-        if (is_diploid) {
-            manual_lambda = manual_lambda * 2;
-        }
+            // Re-adjust manual lambda if diploid so it can be recalculated correctly for next k
+            if (is_diploid) {
+                manual_lambda = manual_lambda * 2;
+            }
         }
     }
 
