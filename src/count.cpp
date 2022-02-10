@@ -139,8 +139,8 @@ double score_profile(const kmer_count_map& read_map, const kmer_count_map& allel
 // Binomial kmer likelihood
 double binomial_kmer_likelihood(const string& kmer, const size_t kmer_length, const map<string, vector<string>>& allele_kmers_hamming_kmers, const kmer_count_map& single_allele_kmer_counts, const size_t total_allele_kmer_number, const double log_error)
 {
-    auto iter = single_allele_kmer_counts.find(kmer);
-    size_t kmer_count = iter->second;
+    //auto iter = 
+    size_t kmer_count = single_allele_kmer_counts.at(kmer);
     double log_kmer_probability = log(kmer_count / total_allele_kmer_number);
     double log_error_free_portion = log_kmer_probability + log(1 - exp(log_error));
     fprintf(stderr, "kmer: %s, count: %zu, log prob: %f, error-free portion: %f\n", kmer.c_str(), kmer_count, log_kmer_probability, log_error_free_portion);
@@ -148,14 +148,18 @@ double binomial_kmer_likelihood(const string& kmer, const size_t kmer_length, co
 
     // iterate through all hamming kmers that exist in allele kmer list
     double hamming_probability = 0;
-    auto iter2 = allele_kmers_hamming_kmers.find(kmer);
-    for (auto iter3 : iter2->second) {
-        auto iter4 = single_allele_kmer_counts.find(iter3);
-        hamming_probability += iter4->second / total_allele_kmer_number;
+    double log_hamming_portion = 0; //TODO: find beter default number
+    //auto iter2 = allele_kmers_hamming_kmers.at(kmer);
+    if (allele_kmers_hamming_kmers.count(kmer) > 0) {
+        for (auto iter3 : allele_kmers_hamming_kmers.at(kmer)) {
+        //auto iter4 = single_allele_kmer_counts.at(iter3);
+        hamming_probability += single_allele_kmer_counts.at(iter3) / total_allele_kmer_number;
         fprintf(stderr, "ham: %s ", iter3.c_str());
+        }
+    
+        fprintf(stderr, "\n");
+        log_hamming_portion = log(hamming_probability) + log_error - log(3 * kmer_length);
     }
-    fprintf(stderr, "\n");
-    double log_hamming_portion = log(hamming_probability) + log_error - log(3 * kmer_length);
 
     // overall likelihood is q(1-e) + sum over set of hamming kmers(q * e/3kmer_length)
     // q = kmer_count / sum(all kmer counts)
@@ -453,9 +457,10 @@ int countMain(int argc, char** argv) {
                 if (find(union_allele_kmers_vector.begin(), union_allele_kmers_vector.end(), iter2) != union_allele_kmers_vector.end()) {
                     allele_kmers_hamming_kmers[iter].push_back(iter2);
                 }
-            // if (allele_kmers_hamming_kmers[union_allele_kmers_vector[i]].empty()) {
-            //     allele_kmers_hamming_kmers[union_allele_kmers_vector[i]].push_back("none");
             }
+            // if (allele_kmers_hamming_kmers[iter].empty()) {
+            //     allele_kmers_hamming_kmers[iter].push_back("none");
+            // }
         }
 
         // fprintf(stderr, "\nallele kmers\n");
@@ -463,14 +468,14 @@ int countMain(int argc, char** argv) {
         //     fprintf(stderr, "%s ", iter.c_str());
         // }
 
-        // fprintf(stderr, "\n\nallele kmers and their hams\n");
-        // for (auto iter = allele_kmers_hamming_kmers.begin(); iter != allele_kmers_hamming_kmers.end(); ++iter) {
-        //     fprintf(stderr, "%s: ", iter->first.c_str());
-        //     for (auto iter2 : iter->second) {
-        //         fprintf(stderr, "%s ", iter2.c_str());
-        //     }
-        //     fprintf(stderr, "\n");
-        // }
+        fprintf(stderr, "\n\nallele kmers and their hams\n");
+        for (auto iter = allele_kmers_hamming_kmers.begin(); iter != allele_kmers_hamming_kmers.end(); ++iter) {
+            fprintf(stderr, "%s: ", iter->first.c_str());
+            for (auto iter2 : iter->second) {
+                fprintf(stderr, "%s ", iter2.c_str());
+            }
+            fprintf(stderr, "\n");
+        }
 
 
         // // Get allele kmer indexes
@@ -728,10 +733,10 @@ int countMain(int argc, char** argv) {
             map<string, double> alelle_kmer_likelihood;
             for (auto kmer : union_allele_kmers_vector) {
                 //fprintf(stderr, "\n\n");
-                fprintf(stderr, "\n\nalelle: %s kmer: %s counts: %zu\n\n", allele.c_str(), kmer.c_str(), allele_kmer_counts[allele].at(kmer));
+                //fprintf(stderr, "\n\nalelle: %s kmer: %s counts: %zu\n\n", allele.c_str(), kmer.c_str(), allele_kmer_counts[allele].at(kmer));
                 double kmer_likelihood = binomial_kmer_likelihood(kmer, k_values[k], allele_kmers_hamming_kmers, allele_kmer_counts[allele], all_kmer_sums[allele], log_error);
                 alelle_kmer_likelihood[kmer] = kmer_likelihood;
-                fprintf(stderr, "%s %f\n", kmer.c_str(), kmer_likelihood);
+                //fprintf(stderr, "%s %f\n", kmer.c_str(), kmer_likelihood);
             }
             all_kmer_likelihoods[allele] = alelle_kmer_likelihood;
         }
