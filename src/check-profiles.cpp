@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <iostream>
 #include <math.h>
+#include <omp.h>
 #include <set>
 #include <sstream>
 #include <stdint.h>
@@ -182,11 +183,14 @@ static const char *CHECK_PROFILES_USAGE_MESSAGE =
 "Usage: gbkc check-profiles [options]\n\n"
 "Commands:\n"
 "       -a       multi-fasta file of alleles/haplotypes of interest\n"
-"       -l       lower range of k values to be checked (default: 3)\n"
-"       -u       upper range of k values to be checked (should not be greater than the read length)\n"
+"       -k       lower value of k to be checked (default: 3)\n"
+"       -K       upper value of k to be checked\n"
+"       -i       increment size between k-mer values (default: 1)\n"
 "       -d       check diploid genotypes (if flag is not used, haploid check is performed)\n"
-"       -v       verbose printout of comparisons when profiles are not identical\n"
-"       -p       print individual k-mer count profiles instead of comparisons\n";
+"       -v       verbose printout of comparisons (differences per k-mer) when profiles are not identical \n"
+"       -p       print individual k-mer count profiles (overrides -v)\n"
+"       -o       output file name (default: check-profiles-results.txt)\n"
+"       -t       number of threads (default: 1)\n";
 
 
 //
@@ -206,22 +210,27 @@ int checkprofilesMain(int argc, char** argv) {
     //
 
     string input_alleles_file;
-    size_t lower_range = 3;
-    size_t upper_range = 0;
+    size_t lower_k = 3;
+    size_t upper_k = 0;
+    size_t increment_k = 1;
     bool is_diploid = false;
     bool is_verbose = false;
     bool is_profiles = false;
+    string output_name = "check-profiles-results.txt";
+    size_t num_threads = 1;
 
 
-    for (char c; (c = getopt_long(argc, argv, "a:l:u:dvp", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:k:K:i:dvpo:t:", NULL, NULL)) != -1;) {
         istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
-            case 'l': arg >> lower_range; break;
-            case 'u': arg >> upper_range; break;
+            case 'k': arg >> lower_k; break;
+            case 'K': arg >> upper_k; break;
+            case 'i': arg >> increment_k; break;
             case 'd': is_diploid = true; break;
             case 'v': is_verbose = true; break;
             case 'p': is_profiles = true; break;
+            case 't': arg >> num_threads; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -232,8 +241,18 @@ int checkprofilesMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    if (upper_range <= 0 || upper_range < lower_range) {
-        fprintf(stderr, "Upper range for testing k-mer count profiles must be greater than 0 and greater than the lower range. Check parameters.\n");
+    if (upper_k <= 0 || lower_k <=0) {
+        fprintf(stderr, "Value of k must be non-zero. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (lower_k > upper_k || increment_k < 0 || increment_k > upper_k) {
+        fprintf(stderr, "Lower k value and k increment size must not be greater than upper k value. Check parameters.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (num_threads <= 0) {
+        fprintf(stderr, "Number of threads must be greater than 0. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -255,10 +274,9 @@ int checkprofilesMain(int argc, char** argv) {
 
 
     //
-    // Compare k-mer count profiles
+    // Get list of allele comparisons to make
     //
 
-    // // Get list of allele comparisons to make
     vector<pair<string, string>> allele_pairs;
     vector<pair<string, string>> genotype_pairs;
     vector<pair<string, string>> genotypes;
@@ -277,10 +295,37 @@ int checkprofilesMain(int argc, char** argv) {
         genotype_pairs = pairwise_comparisons(genotype_names, false);
     }
 
+    //
+    // Iterate over all possible values of k
+    //
 
-    // Iterate over all possible values of k given length l
-    for (size_t k = lower_range; k < upper_range + 1; ++k) {
-        fprintf(stderr, "Testing k = %zu... \n", k);
+    // Get all values of k
+    vector<size_t> k_values;
+
+    size_t counter = lower_k;
+    while (counter < upper_k) {
+        k_values.push_back(counter);
+        counter += increment_k;
+    }
+
+    k_values.push_back(upper_k);
+
+
+    FILE * output;
+    output = fopen(output_name.c_str(), "w");
+
+    // Iterate
+    omp_set_num_threads(num_threads);
+    #pragma omp parallel for
+    for (size_t k = 0; k < k_values.size(); ++k) {
+        
+        fprintf(stderr, "Testing k = %zu... \n", k_values[k]);
+
+        // Check if k-mer count profiles are unique amongst all alleles
+        vector<pair<string, string>> identical_profiles;
+        // k-mer comparison map
+        map<string, kmer_comparison_map> kmer_comparisons;
+
 
         // All k-mers in each allele or genotype
         map<string, kmer_count_map> allele_kmer_counts;
@@ -288,10 +333,9 @@ int checkprofilesMain(int argc, char** argv) {
 
         // Get count profiles for each allele
         for (size_t a = 0; a < alleles.size(); ++a) {
-            kmer_count_map single_allele_kmer_counts = count_kmers(alleles[a].sequence, k);
+            kmer_count_map single_allele_kmer_counts = count_kmers(alleles[a].sequence, k_values[k]);
             allele_kmer_counts[alleles[a].name] = single_allele_kmer_counts;
         }
-
 
         // Combine profiles for diploid genotypes if applicable
         if (is_diploid) {
@@ -305,85 +349,85 @@ int checkprofilesMain(int argc, char** argv) {
             }
         }
 
-        if (is_profiles) {
-
-            if (is_diploid) {
-                for (auto iter1 = genotype_kmer_counts.begin(); iter1 != genotype_kmer_counts.end(); ++iter1) {
-                    for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
-                        printf("%zu,%s,%s,%zu\n", k, iter1->first.c_str(), iter2->first.c_str(), iter2->second);
-                    }
-                }
-            }
-
-            else if (!is_diploid) {
-               for (auto iter1 = allele_kmer_counts.begin(); iter1 != allele_kmer_counts.end(); ++iter1) {
-                    for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
-                        printf("%zu,%s,%s,%zu\n", k, iter1->first.c_str(), iter2->first.c_str(), iter2->second);
-                    }
-                }
-            }
-        }
-
-        else if (!is_profiles) {
-
-            printf("Testing k = %zu... \n", k);
-
-            // Check if k-mer count profiles are unique amongst all alleles
-            vector<pair<string, string>> identical_profiles;
-
-            // k-mer comparison map
-            map<string, kmer_comparison_map> kmer_comparisons;
-
+        if (!is_profiles) {
             if (!is_diploid) {
                 for (auto iter = allele_pairs.begin(); iter != allele_pairs.end(); ++iter) {
                     bool allele_vs_allele = compare_profiles(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
                     if (allele_vs_allele == 1) {
                         identical_profiles.push_back(make_pair(iter->first, iter->second));
                     }
-                    if (is_verbose == true && allele_vs_allele == 0) {
+                    else if (is_verbose == true && allele_vs_allele == 0) {
                         string compared_alleles = iter->first + "," + iter->second;
                         kmer_comparisons[compared_alleles] = kmer_differences(allele_kmer_counts[iter->first], allele_kmer_counts[iter->second]);
                     }
                 }
             }
 
-            else if (is_diploid) {
+            else {
                 for (auto iter = genotype_pairs.begin(); iter != genotype_pairs.end(); ++iter) {
                     bool genotype_vs_genotype = compare_profiles(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
                     if (genotype_vs_genotype == 1) {
                         identical_profiles.push_back(make_pair(iter->first, iter->second));
                     }
-                    if (is_verbose == true && genotype_vs_genotype == 0) {
+                    else if (is_verbose == true && genotype_vs_genotype == 0) {
                         string compared_genotypes = iter->first + "," + iter->second;
                         kmer_comparisons[compared_genotypes] = kmer_differences(genotype_kmer_counts[iter->first], genotype_kmer_counts[iter->second]);
                     }
                 }
             }
+        }
 
-            if (!is_verbose) {
-                if (identical_profiles.size() > 0) {
-                    printf("Some alleles had identical k-mer count profiles:\n");
-                    for (auto iter = identical_profiles.begin(); iter != identical_profiles.end(); ++iter) {
-                        printf("%s and %s at k=%zu\n", iter->first.c_str(), iter->second.c_str(), k);
+        //
+        // Save output
+        //
+
+        #pragma omp critical 
+        {
+
+            if (!is_profiles) {
+                fprintf(output, "Testing k = %zu... \n", k_values[k]);
+                if (!is_verbose) {
+                    if (identical_profiles.size() > 0) {
+                        fprintf(output, "Some alleles had identical k-mer count profiles:\n");
+                        for (auto iter = identical_profiles.begin(); iter != identical_profiles.end(); ++iter) {
+                            fprintf(output, "%s and %s at k=%zu\n", iter->first.c_str(), iter->second.c_str(), k_values[k]);
+                        }
+                    }
+                    else {
+                        fprintf(output, "All k-mer count profiles are unique\n");
                     }
                 }
                 else {
-                    printf("All k-mer count profiles are unique\n");
+                    // Output is second profile counts minus first profile counts
+                    for (auto iter1 = kmer_comparisons.begin(); iter1 != kmer_comparisons.end(); ++iter1) {
+                        for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
+                            fprintf(output, "%s,%s,%i\n", iter1->first.c_str(), iter2->first.c_str(), iter2->second);
+                        }
+                    }
                 }
             }
 
-            else if (is_verbose) {
-                // Output is second profile - first profile
-                for (auto iter1 = kmer_comparisons.begin(); iter1 != kmer_comparisons.end(); ++iter1) {
-                    for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
-                        printf("%s,%s,%i\n", iter1->first.c_str(), iter2->first.c_str(), iter2->second);
+            else {
+                if (is_diploid) {
+                    for (auto iter1 = genotype_kmer_counts.begin(); iter1 != genotype_kmer_counts.end(); ++iter1) {
+                        for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
+                            fprintf(output, "%zu,%s,%s,%zu\n", k_values[k], iter1->first.c_str(), iter2->first.c_str(), iter2->second);
+                        }
                     }
-
+                }
+                else {
+                for (auto iter1 = allele_kmer_counts.begin(); iter1 != allele_kmer_counts.end(); ++iter1) {
+                        for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); ++iter2) {
+                            fprintf(output, "%zu,%s,%s,%zu\n", k_values[k], iter1->first.c_str(), iter2->first.c_str(), iter2->second);
+                        }
+                    }
                 }
             }
         }
 
     }
+
+    fclose(output);
 
 
     //
