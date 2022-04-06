@@ -488,7 +488,7 @@ int distanceMain(int argc, char** argv) {
                 all_scores_vector.push_back(make_pair(iter->second, iter->first));
             }
 
-            sort(all_scores_vector.begin(), all_scores_vector.end(), greater<pair<int, string>>());
+            sort(all_scores_vector.begin(), all_scores_vector.end(), greater<pair<double, string>>());
             int N_printed = 0;
 
             for (size_t i = 0; i < all_scores_vector.size(); ++i) {

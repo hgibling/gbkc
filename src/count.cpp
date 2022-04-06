@@ -556,7 +556,7 @@ int countMain(int argc, char** argv) {
                 all_scores_vector.push_back(make_pair(iter->second, iter->first));
             }
 
-            sort(all_scores_vector.begin(), all_scores_vector.end(), greater<pair<int, string>>());
+            sort(all_scores_vector.begin(), all_scores_vector.end(), greater<pair<double, string>>());
             int N_printed = 0;
             for (size_t i = 0; i < all_scores_vector.size(); ++i) {
                 fprintf(output, "%zu,%s,%f\n", k_values[k], all_scores_vector[i].second.c_str(), all_scores_vector[i].first);
