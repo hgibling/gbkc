@@ -24,25 +24,35 @@
 #include "distance.h"
 #include "kseq.h"
 
+using std::accumulate;
+using std::cout;
+using std::greater;
+using std::istringstream;
+using std::map;
+using std::pair;
+using std::set;
+using std::string;
+using std::vector;
+
 
 //
 // Define functions
 //
 
 // Get positions for every k-mer in a sequence
-kmer_position_map kmer_positions(const std::string& sequence, const size_t k)
+kmer_position_map kmer_positions(const string& sequence, const size_t k)
 {
     kmer_position_map out_map;
     for (size_t i = 0; i < sequence.size() - k + 1; ++i) {
-        out_map.insert(std::pair<std::string, size_t>(sequence.substr(i, k), i));
+        out_map.insert(pair<string, size_t>(sequence.substr(i, k), i));
     }
     return out_map;
 }
 
 // Get pairs of outermost k-mers from a read pair
-std::pair<std::string, std::string> outer_kmers(const std::string& first_read, const std::string& second_read, const size_t k, const size_t p)
+pair<string, string> outer_kmers(const string& first_read, const string& second_read, const size_t k, const size_t p)
 {
-    std::pair<std::string, std::string> out_pair;
+    pair<string, string> out_pair;
     if (p == 0) {
         out_pair = make_pair(first_read.substr(0, k), reverse_complement(second_read.substr(0, k)));
     }
@@ -74,7 +84,7 @@ double log_normal_pdf(const double distance, const double mean, const double sta
 }
 
 // Get the geometric mean of a vector of numbers
-double geometric_mean(const std::vector<double>& numbers)
+double geometric_mean(const vector<double>& numbers)
 {
     double sum = 0;
     size_t size = numbers.size();
@@ -86,10 +96,10 @@ double geometric_mean(const std::vector<double>& numbers)
 }
 
 // Score reads outer k-mers with allele k-mer outer distance
-double score_kmer_distances(const std::pair<std::string, std::string>& read_kmer_pair, const kmer_position_map& allele_distances, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const std::string& method)
+double score_kmer_distances(const pair<string, string>& read_kmer_pair, const kmer_position_map& allele_distances, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const string& method)
 {
     double score = 0;
-    std::vector<double> kmer_pair_scores;
+    vector<double> kmer_pair_scores;
     auto check1 = allele_distances.find(read_kmer_pair.first);
     auto check2 = allele_distances.find(read_kmer_pair.second);
     // If either kmer is not present in the list of allele kmer distances, use the penalty score instead
@@ -108,23 +118,23 @@ double score_kmer_distances(const std::pair<std::string, std::string>& read_kmer
 
         if (method == "sum") {
             // Sum each log probability
-            std::vector<double> antilog;
+            vector<double> antilog;
             for (auto iter = kmer_pair_scores.begin(); iter != kmer_pair_scores.end(); ++iter) {
                 antilog.push_back(exp(*iter));
             }
-            score = log(std::accumulate(antilog.begin(), antilog.end(), 0.0));
+            score = log(accumulate(antilog.begin(), antilog.end(), 0.0));
         }
         else if (method == "mean") {
             // Get the arithmetic mean of the log probabilities
-            std::vector<double> antilog;
+            vector<double> antilog;
             for (auto iter = kmer_pair_scores.begin(); iter != kmer_pair_scores.end(); ++iter) {
                 antilog.push_back(exp(*iter));
             }
-            score = log(std::accumulate(antilog.begin(), antilog.end(), 0.0)/antilog.size());
+            score = log(accumulate(antilog.begin(), antilog.end(), 0.0)/antilog.size());
         }
         else if (method == "geomean") {
             // Get the geometric mean of the log probabilities
-            std::vector<double> antilog;
+            vector<double> antilog;
             for (auto iter = kmer_pair_scores.begin(); iter != kmer_pair_scores.end(); ++iter) {
                 antilog.push_back(exp(*iter));
             }
@@ -142,16 +152,16 @@ double score_kmer_distances(const std::pair<std::string, std::string>& read_kmer
 }
 
 // Score each read (for haploids)
-double allele_score_read_kmer_pairs(const kmer_position_map& allele_positions, const kmer_pairs_map& read_pairs, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const std::string& method)
+double allele_score_read_kmer_pairs(const kmer_position_map& allele_positions, const kmer_pairs_map& read_pairs, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const string& method)
 {
     double score = 0;
-    std::set<std::string> read_names;
+    set<string> read_names;
     for (auto iter = read_pairs.begin(); iter != read_pairs.end(); ++iter) {
         read_names.insert(iter->first);
     }
     for (auto iter1 = read_names.begin(); iter1 != read_names.end(); ++iter1) {
         auto range = read_pairs.equal_range(*iter1);
-        std::vector<double> compare_scores;
+        vector<double> compare_scores;
         for (auto iter2 = range.first; iter2 != range.second; ++iter2) {
             compare_scores.push_back(score_kmer_distances(iter2->second, allele_positions, fragment_length, fragment_stdev, k, penalty, method));
         }
@@ -162,22 +172,22 @@ double allele_score_read_kmer_pairs(const kmer_position_map& allele_positions, c
 }
 
 // Score each read (for diploids)
-double genotype_score_read_kmer_pairs(const kmer_position_map& allele_positions1, const kmer_position_map& allele_positions2, const kmer_pairs_map& read_pairs, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const std::string& method)
+double genotype_score_read_kmer_pairs(const kmer_position_map& allele_positions1, const kmer_position_map& allele_positions2, const kmer_pairs_map& read_pairs, const double fragment_length, const double fragment_stdev, const size_t k, const size_t penalty, const string& method)
 {
     double score = 0;
-    std::set<std::string> read_names;
+    set<string> read_names;
     for (auto iter = read_pairs.begin(); iter != read_pairs.end(); ++iter) {
         read_names.insert(iter->first);
     }
     for (auto iter1 = read_names.begin(); iter1 != read_names.end(); ++iter1) {
         auto range = read_pairs.equal_range(*iter1);
-        std::vector<double> compare_scores1;
+        vector<double> compare_scores1;
         for (auto iter2 = range.first; iter2 != range.second; ++iter2) {
 		compare_scores1.push_back(score_kmer_distances(iter2->second, allele_positions1, fragment_length, fragment_stdev, k, penalty, method));
         }
 	double max_score1 = *max_element(compare_scores1.begin(), compare_scores1.end());
 
-        std::vector<double> compare_scores2;
+        vector<double> compare_scores2;
         for (auto iter2 = range.first; iter2 != range.second; ++iter2) {
             compare_scores2.push_back(score_kmer_distances(iter2->second, allele_positions2, fragment_length, fragment_stdev, k, penalty, method));
         }
@@ -211,6 +221,7 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "       -s       standard deviation of fragment length\n"
 "       -p       penalty fragment length when k-mer pairs aren't observed in an allele (default: 10)\n"
 "       -m       method for summarizing scores when kmer pairs occur more than once in an allele\n"
+"       -N       print only the top N scores per k-mer (default: print all)\n"
 "       -o       output file name (default: results.csv)\n"
 "       -t       number of threads (default: 1)\n";
 
@@ -222,7 +233,7 @@ static const char *DISTANCE_USAGE_MESSAGE =
 int distanceMain(int argc, char** argv) {
 
     if(argc <= 1) {
-        std::cout << DISTANCE_USAGE_MESSAGE;
+        cout << DISTANCE_USAGE_MESSAGE;
         return 0;
     };
 
@@ -231,9 +242,10 @@ int distanceMain(int argc, char** argv) {
     // Read command line arguments
     //
 
-    std::string input_alleles_file;
-    std::string input_reads_file1;
-    std::string input_reads_file2;
+    string input_alleles_file;
+    string input_reads_file1;
+    string input_reads_file2;
+    bool is_diploid = false;
     size_t lower_k = 11;
     size_t upper_k = 0;
     size_t increment_k = 4;
@@ -243,17 +255,18 @@ int distanceMain(int argc, char** argv) {
     double fragment_length = -1;
     double fragment_stdev = -1;
     size_t input_penalty = 10;
-    std::string method;
-    std::string output_name = "distance-results.csv";
-    bool is_diploid = false;
+    string method;
+    int top_N = -1;
+    string output_name = "distance-results.csv";
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:f:s:p:m:o:dt:", NULL, NULL)) != -1;) {
-        std::istringstream arg(optarg != NULL ? optarg : "");
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:dk:K:i:l:e:c:f:s:p:m:N:o:t:", NULL, NULL)) != -1;) {
+        istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case '1': arg >> input_reads_file1; break;
             case '2': arg >> input_reads_file2; break;
+            case 'd': is_diploid = true; break;
             case 'k': arg >> lower_k; break;
             case 'K': arg >> upper_k; break;
             case 'i': arg >> increment_k; break;
@@ -264,8 +277,8 @@ int distanceMain(int argc, char** argv) {
             case 's': arg >> fragment_stdev; break;
             case 'p': arg >> input_penalty; break;
             case 'm': arg >> method; break;
+            case 'N': arg >> top_N; break;
             case 'o': arg >> output_name; break;
-            case 'd': is_diploid = true; break;
             case 't': arg >> num_threads; break;
             default: exit(EXIT_FAILURE);
         }
@@ -336,17 +349,17 @@ int distanceMain(int argc, char** argv) {
     // TODO: Handle case where file names are null
     
     // Get allele sequences
-    std::vector<sequence_record> alleles = read_sequences_from_file(input_alleles_file);
+    vector<sequence_record> alleles = read_sequences_from_file(input_alleles_file);
 
     // Get list of allele names
-    std::set<std::string> allele_names;
+    set<string> allele_names;
     for (size_t i = 0; i < alleles.size(); ++i) {
         allele_names.insert(alleles[i].name.c_str());
     }
 
     // Get read sequences
-    std::vector<sequence_record> reads1 = read_sequences_from_file(input_reads_file1);
-    std::vector<sequence_record> reads2 = read_sequences_from_file(input_reads_file2);
+    vector<sequence_record> reads1 = read_sequences_from_file(input_reads_file1);
+    vector<sequence_record> reads2 = read_sequences_from_file(input_reads_file2);
     if (reads1.size() != reads2.size()) {
         fprintf(stderr, "All reads must have a mate (need same number of reads in first and second list).\n");
         exit(EXIT_FAILURE);
@@ -378,7 +391,7 @@ int distanceMain(int argc, char** argv) {
     // Determine all possible genotypes if needed
     //
 
-    std::vector<std::pair<std::string, std::string>> genotypes;
+    vector<pair<string, string>> genotypes;
 
     if (is_diploid) {
         genotypes = pairwise_comparisons(allele_names, true);
@@ -390,7 +403,7 @@ int distanceMain(int argc, char** argv) {
     //
 
     // Get all values of k
-    std::vector<size_t> k_values;
+    vector<size_t> k_values;
 
     size_t counter = lower_k;
     while (counter < upper_k) {
@@ -415,7 +428,7 @@ int distanceMain(int argc, char** argv) {
         // Get k-mer positions for alleles
         //
 
-        std::map<std::string, kmer_position_map> allele_positions;
+        map<string, kmer_position_map> allele_positions;
         for (size_t a = 0; a < alleles.size(); ++a) {
             kmer_position_map single_allele_positions = kmer_positions(alleles[a].sequence, k_values[k]);
             allele_positions[alleles[a].name] = single_allele_positions;
@@ -432,11 +445,11 @@ int distanceMain(int argc, char** argv) {
 
             // Get both first read kmer and reverse complement second read kmer, and reverse complement first read k-mer
             // and second read k-mer, since we don't know orientation of the reads
-            std::pair<std::string, std::string> first_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, k_values[k], 0);
-            std::pair<std::string, std::string> second_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, k_values[k], 1);
+            pair<string, string> first_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, k_values[k], 0);
+            pair<string, string> second_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, k_values[k], 1);
 
 	    // Only keep k-mers without Ns
-	    if ((first_rc.first.find('N') == std::string::npos) & (first_rc.second.find('N') == std::string::npos)) {
+	    if ((first_rc.first.find('N') == string::npos) & (first_rc.second.find('N') == string::npos)) {
 	            read_pairs.insert({reads1[r].name, first_rc});
 	            read_pairs.insert({reads1[r].name, second_rc});
 	    }
@@ -447,17 +460,17 @@ int distanceMain(int argc, char** argv) {
         // Calculate distance scores for each allele or genotype
         //
 
-        std::map<std::string, double> all_scores;
+        map<string, double> all_scores;
 
         if (!is_diploid) {
             for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
-                std::string a = *iter;
+                string a = *iter;
                 all_scores[a] = allele_score_read_kmer_pairs(allele_positions[a], read_pairs, fragment_length, fragment_stdev, k_values[k], input_penalty, method);
             }
         }
         else if (is_diploid) {
             for (auto iter = genotypes.begin(); iter != genotypes.end(); ++iter) {
-                std::string genotype_name = iter->first + "/" + iter->second;
+                string genotype_name = iter->first + "/" + iter->second;
                 all_scores[genotype_name] = genotype_score_read_kmer_pairs(allele_positions[iter->first], allele_positions[iter->second], read_pairs, fragment_length, fragment_stdev, k_values[k], input_penalty, method);
             }
         }
@@ -469,8 +482,21 @@ int distanceMain(int argc, char** argv) {
 
         #pragma omp critical
         {
+            // Create vector to store score:genotype values, sort and print top N
+            vector<pair<double, string>> all_scores_vector;
             for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
-                fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
+                all_scores_vector.push_back(make_pair(iter->second, iter->first));
+            }
+
+            sort(all_scores_vector.begin(), all_scores_vector.end(), greater<pair<double, string>>());
+            int N_printed = 0;
+
+            for (size_t i = 0; i < all_scores_vector.size(); ++i) {
+                fprintf(output, "%zu,%s,%f\n", k_values[k], all_scores_vector[i].second.c_str(), all_scores_vector[i].first);
+                N_printed += 1;
+                if (top_N > 0 && N_printed == top_N) {
+                    break;
+                }
             }
         }
     }
