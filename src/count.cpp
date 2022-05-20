@@ -24,46 +24,20 @@
 #include "kseq.h"
 
 using std::cout;
-using std::find;
+using std::greater;
 using std::istringstream;
-using std::map;
 using std::pair;
+using std::map;
 using std::set;
 using std::sort;
 using std::string;
 using std::unordered_set;
 using std::vector;
 
+
 //
 // Define functions
 //
-
-// Index kmers
-kmer_count_map index_kmers(const vector<string>& allele_kmer_vector)
-{
-    kmer_count_map out_map;
-    for (size_t i = 0; i < allele_kmer_vector.size(); ++i) {
-        out_map[allele_kmer_vector[i]] = i;
-    }
-    return out_map;
-}
-
-// Get all kmers within specified edit/hamming distance
-vector<string> get_hamming_kmers(string& kmer, const size_t k)
-{
-    vector<string> out_vector;
-    for (size_t i = 0; i < k; i++) {
-        char original = kmer[i];
-        for (size_t j = 0; j < 4; ++j) {
-            char ham = "ACGT"[j];
-            if (ham == original) continue;
-            kmer[i] = ham;
-            out_vector.push_back(canonical_kmer(kmer));
-        }
-        kmer[i] = original;
-    }
-    return out_vector;
-}
 
 // Calculate lambda
 double calculate_lambda(const double read_length, const size_t k, const double coverage, const double sequencing_error)
@@ -76,32 +50,15 @@ double calculate_lambda(const double read_length, const size_t k, const double c
 double log_factorial(size_t c)
 {
     double result = 0;
-    while (c > 0) {
+    while(c > 0) {
         result += log(c--); //slow
     }
     return result;
 }
 
-// Log Binomial coefficient
-double log_binomial_coefficient(const size_t n, const size_t k)
-{
-    // Binomial coefficient is n! / (k! * (n -k)!)
-    double result = log_factorial(n) - (log_factorial(k) + log_factorial(n - k));
-    return result;
-}
-
-// Log Binomial distribution probability mass function
-double log_binomial_pmf(const size_t n, const size_t k, const double probability)
-{
-    // Binomial pmf is (n choose k) * p^k * (1-p)^(n-k)
-    double result = log_binomial_coefficient(n, k) + (k * log(probability)) + ((n-k) * log(1-probability));
-    return(result);
-}
-
-// Log Poisson distribution probability mass function (from Jared Simpson)
+// Poisson distribution probability mass function (from Jared Simpson)
 double log_poisson_pmf(const double c, const double lambda)
 {
-    // Poisson pmf is (lam^k * e^-lam) / k!
     double f_c = log_factorial(c);
     double p = (double)c * log(lambda) - lambda - f_c;
     return p;
@@ -136,42 +93,6 @@ double score_profile(const kmer_count_map& read_map, const kmer_count_map& allel
     return score;
 }
 
-// Binomial kmer likelihood
-double binomial_kmer_likelihood(const string& kmer, const size_t kmer_length, const map<string, vector<string>>& allele_kmers_hamming_kmers, const kmer_count_map& single_allele_kmer_counts, const size_t total_allele_kmer_number, const double log_error)
-{
-    //auto iter = 
-    size_t kmer_count = single_allele_kmer_counts.at(kmer);
-    double log_kmer_probability = log(kmer_count / total_allele_kmer_number);
-    double log_error_free_portion = log_kmer_probability + log(1 - exp(log_error));
-    fprintf(stderr, "kmer: %s, count: %zu, log prob: %f, error-free portion: %f\n", kmer.c_str(), kmer_count, log_kmer_probability, log_error_free_portion);
-
-
-    // iterate through all hamming kmers that exist in allele kmer list
-    double hamming_probability = 0;
-    double log_hamming_portion = 0; //TODO: find beter default number
-    //auto iter2 = allele_kmers_hamming_kmers.at(kmer);
-    if (allele_kmers_hamming_kmers.count(kmer) > 0) {
-        for (auto iter3 : allele_kmers_hamming_kmers.at(kmer)) {
-        //auto iter4 = single_allele_kmer_counts.at(iter3);
-        hamming_probability += single_allele_kmer_counts.at(iter3) / total_allele_kmer_number;
-        fprintf(stderr, "ham: %s ", iter3.c_str());
-        }
-    
-        fprintf(stderr, "\n");
-        log_hamming_portion = log(hamming_probability) + log_error - log(3 * kmer_length);
-    }
-
-    // overall likelihood is q(1-e) + sum over set of hamming kmers(q * e/3kmer_length)
-    // q = kmer_count / sum(all kmer counts)
-    double log_overall_likelihood = log(exp(log_error_free_portion) + exp(log_hamming_portion));
-
-    //fprintf(stderr, "ham portion: %f, overall: %f\n", log_hamming_portion, log_overall_likelihood);
-
-    return log_overall_likelihood;
-}
-
-
-
 
 //
 // Help message
@@ -195,6 +116,7 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -m       method for calculating lambda (from coverage and error rate, or from flank k-mer counts; one of: coverage, mean, median)\n"
 "       -M       manual lambda entry (overrides lambda method selection)\n"
 "       -f       multi-fasta file of the two flanking sequences surrounding region of interest\n"
+"       -N       print only the top N scores per k-mer (default: print all)\n"
 "       -o       output file name (default: results.csv)\n"
 "       -t       number of threads (default: 1)\n";
 
@@ -218,6 +140,7 @@ int countMain(int argc, char** argv) {
     string input_alleles_file;
     string input_reads_file1;
     string input_reads_file2;
+    bool is_diploid = false;
     size_t lower_k = 11;
     size_t upper_k = 0;
     size_t increment_k = 4;
@@ -225,19 +148,20 @@ int countMain(int argc, char** argv) {
     double sequencing_error = -1;
     double coverage = -1;
     double lambda_error = 1;
-    string lambda_method = "coverage";     // default temporary for multinomial development
+    string lambda_method;
     double manual_lambda = -1;       // temporary for troubleshooting
     string input_flanks_file;
+    int top_N = -1;
     string output_name = "count-results.csv";
-    bool is_diploid = false;
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:k:K:i:l:e:c:L:m:M:f:o:dt:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:dk:K:i:l:e:c:L:m:M:f:N:o:t:", NULL, NULL)) != -1;) {
         istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case '1': arg >> input_reads_file1; break;
             case '2': arg >> input_reads_file2; break;
+            case 'd': is_diploid = true; break;
             case 'k': arg >> lower_k; break;
             case 'K': arg >> upper_k; break;
             case 'i': arg >> increment_k; break;
@@ -248,8 +172,8 @@ int countMain(int argc, char** argv) {
             case 'm': arg >> lambda_method; break;
             case 'M': arg >> manual_lambda; break;     // temporary for troubleshooting
             case 'f': arg >> input_flanks_file; break;
+            case 'N': arg >> top_N; break;
             case 'o': arg >> output_name; break;
-            case 'd': is_diploid = true; break;
             case 't': arg >> num_threads; break;
             default: exit(EXIT_FAILURE);
         }
@@ -338,27 +262,27 @@ int countMain(int argc, char** argv) {
     // Print handy information
     //
 
-    // fprintf(stderr, "Number of threads used: %zu\n", num_threads);
-    // fprintf(stderr, "Input reads: %s", input_reads_file1.c_str());
-    // fprintf(stderr, " %s", input_reads_file2.c_str());
-    // fprintf(stderr, "\nInput alleles: %s\n", input_alleles_file.c_str());
-    // fprintf(stderr, "Input flank sequences: %s\n", input_flanks_file.c_str());
-    // fprintf(stderr, "Number of alleles: %zu\n", allele_names.size());
-    // if (!is_diploid) {
-    //     fprintf(stderr, "Haploid profiles used\n");
-    // }
-    // else if (is_diploid) {
-    //     fprintf(stderr, "Diploid profiles used\n");
-    // }
-    // fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
-    // fprintf(stderr, "Input lambda error: %f\n", lambda_error);
-    // fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
-    // if (manual_lambda != -1) {
-    //     fprintf(stderr, "Manual lambda value selected: %f\n", manual_lambda);
-    // }
-    // else {
-    //     fprintf(stderr, "Selected lambda method: %s\n", lambda_method.c_str());
-    // }
+    fprintf(stderr, "Number of threads used: %zu\n", num_threads);
+    fprintf(stderr, "Input reads: %s", input_reads_file1.c_str());
+    fprintf(stderr, " %s", input_reads_file2.c_str());
+    fprintf(stderr, "\nInput alleles: %s\n", input_alleles_file.c_str());
+    fprintf(stderr, "Input flank sequences: %s\n", input_flanks_file.c_str());
+    fprintf(stderr, "Number of alleles: %zu\n", allele_names.size());
+    if (!is_diploid) {
+        fprintf(stderr, "Haploid profiles used\n");
+    }
+    else if (is_diploid) {
+        fprintf(stderr, "Diploid profiles used\n");
+    }
+    fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
+    fprintf(stderr, "Input lambda error: %f\n", lambda_error);
+    fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
+    if (manual_lambda != -1) {
+        fprintf(stderr, "Manual lambda value selected: %f\n", manual_lambda);
+    }
+    else {
+        fprintf(stderr, "Selected lambda method: %s\n", lambda_method.c_str());
+    }
 
 
     //
@@ -397,378 +321,256 @@ int countMain(int argc, char** argv) {
     output = fopen(output_name.c_str(), "w");
 
     // Iterate
-    // omp_set_num_threads(num_threads);
-    // #pragma omp parallel for
+    omp_set_num_threads(num_threads);
+    #pragma omp parallel for
     for (size_t k = 0; k < k_values.size(); ++k) {
 
 
         //
-        // Count k-mers and get hamming k-mers in alleles/genotypes
+        // Count k-mers in alleles/genotypes
         //
 
-        // All k-mer counts in each allele/genotype
+        // All k-mers in each allele/genotype
         map<string, kmer_count_map> allele_kmer_counts;
         map<string, kmer_count_map> genotype_kmer_counts;
 
+
         // Union of k-mers from all alleles
-        unordered_set<string> union_allele_kmers;
-
-        // Hamming k-mer data
-        map<string, size_t> allele_kmer_index;
-        map<string, vector<size_t>> allele_hamming_index;
-        map<string, vector<string>> allele_kmers_hamming_kmers;
-
-        // map<string, size_t> genotype_kmer_index
-        // map<string, vector<size_t>> genotype_hamming_index
+        unordered_set<string> allele_kmers;
 
         // Iterate over each allele
         for (size_t a = 0; a < alleles.size(); ++a) {
-            kmer_count_map single_allele_kmer_counts = count_kmers(alleles[a].sequence, k_values[k]);
+            map<string, size_t> single_allele_kmer_counts = count_kmers(alleles[a].sequence, k_values[k]);
             allele_kmer_counts[alleles[a].name.c_str()] = single_allele_kmer_counts;
             for (auto iter = single_allele_kmer_counts.begin(); iter != single_allele_kmer_counts.end(); ++iter) {
-                string kmer = iter->first;
-                union_allele_kmers.insert(kmer);
+                allele_kmers.insert(iter->first);
+            }
+        }
+
+        // Combine profiles for diploid genotypes if applicable
+        if (is_diploid) {
+            for (auto iter1 = genotypes.begin(); iter1 != genotypes.end(); ++iter1) {
+                kmer_count_map combined_alelle_map = allele_kmer_counts[iter1->first];
+                for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
+                    combined_alelle_map[iter2->first] += iter2->second;
+                }
+                string genotype_name = iter1->first + "/" + iter1->second;
+                genotype_kmer_counts[genotype_name] = combined_alelle_map;
             }
         }
 
 
+        //
+        // Count k-mers in reads
+        //
 
-        for (auto iter = allele_kmer_counts.begin(); iter != allele_kmer_counts.end(); ++iter){
-            fprintf(stderr, "allele: %s\n", iter->first.c_str());
-            for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
-                fprintf(stderr, "kmer: %s, count: %zu\n", iter2->first.c_str(), iter2->second);
-            }
-        }
-        
+        // k-mers and counts for each read
+        map<string, kmer_count_map> each_read_kmer_counts;
 
-        fprintf(stderr, "\n\n");
+        // k-mers and counts across all reads
+        kmer_count_map all_reads_kmer_counts;
 
-
-
-
-
-
-        // Convert union kmer set to indexable vector
-        vector<string> union_allele_kmers_vector(union_allele_kmers.begin(), union_allele_kmers.end());
-
-        // Get hamming kmers for all allele kmers
-        for (auto iter : union_allele_kmers_vector) {
-            for (auto iter2 : get_hamming_kmers(iter, k_values[k])) {
-                if (find(union_allele_kmers_vector.begin(), union_allele_kmers_vector.end(), iter2) != union_allele_kmers_vector.end()) {
-                    allele_kmers_hamming_kmers[iter].push_back(iter2);
+        // Iterate over each read
+        for (size_t r = 0; r < reads1.size(); ++r) {
+            if (reads1[r].sequence.length() > k_values[k]) {
+                map<string, size_t> single_read_kmer_counts = count_kmers(reads1[r].sequence, k_values[k]);
+                each_read_kmer_counts[reads1[r].name.c_str()] = single_read_kmer_counts;
+                for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
+                    all_reads_kmer_counts[iter->first] += iter->second;
                 }
             }
-            // if (allele_kmers_hamming_kmers[iter].empty()) {
-            //     allele_kmers_hamming_kmers[iter].push_back("none");
-            // }
         }
-
-        // fprintf(stderr, "\nallele kmers\n");
-        // for (auto iter : union_allele_kmers_vector) {
-        //     fprintf(stderr, "%s ", iter.c_str());
-        // }
-
-        fprintf(stderr, "\n\nallele kmers and their hams\n");
-        for (auto iter = allele_kmers_hamming_kmers.begin(); iter != allele_kmers_hamming_kmers.end(); ++iter) {
-            fprintf(stderr, "%s: ", iter->first.c_str());
-            for (auto iter2 : iter->second) {
-                fprintf(stderr, "%s ", iter2.c_str());
+        if (!input_reads_file2.empty()) {
+            for (size_t r = 0; r < reads2.size(); ++r) {
+                if (reads2[r].sequence.length() > k_values[k]) {
+                    map<string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, k_values[k]);
+                    each_read_kmer_counts[reads2[r].name.c_str()] = single_read_kmer_counts;
+                    for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
+                        all_reads_kmer_counts[iter->first] += iter->second;
+                    }
+                }
             }
-            fprintf(stderr, "\n");
         }
-
-
-        // // Get allele kmer indexes
-        // // TODO: should this be indexed in alphabetical order?
-        // for (size_t i = 0; i < union_allele_kmers_vector.size(); ++i) {
-        //     allele_kmer_index[union_allele_kmers_vector[i]] = i;
-        // }
-
-        // // Get hamming kmer indexes
-        // // index corresponds to the index value of the allele kmers
-        // for (size_t i = 0; i < union_allele_kmers_vector.size(); ++i) {
-        //     for (auto iter : get_hamming_kmers(union_allele_kmers_vector[i], k_values[k])) {
-        //         if (find(union_allele_kmers_vector.begin(), union_allele_kmers_vector.end(), iter) != union_allele_kmers_vector.end()) {
-        //             size_t idx  = allele_kmer_index[iter];
-        //             allele_hamming_index[union_allele_kmers_vector[i]].push_back(idx);
-        //         }
-        //     }
-        // }
-
-
-
-
-
-//         // Combine profiles for diploid genotypes if applicable
-//         if (is_diploid) {
-//             for (auto iter1 = genotypes.begin(); iter1 != genotypes.end(); ++iter1) {
-//                 kmer_count_map combined_alelle_map = allele_kmer_counts[iter1->first];
-//                 for (auto iter2 = allele_kmer_counts[iter1->second].begin(); iter2 != allele_kmer_counts[iter1->second].end(); ++iter2) {
-//                     combined_alelle_map[iter2->first] += iter2->second;
-//                 }
-//                 string genotype_name = iter1->first + "/" + iter1->second;
-//                 genotype_kmer_counts[genotype_name] = combined_alelle_map;
-//             }
-//         }
-
-
-
-
-
-
-
-
-
-
-
-
-//         //
-//         // Count k-mers in reads
-//         //
-
-//         // k-mers and counts for each read
-//         map<string, kmer_count_map> each_read_kmer_counts;
-//         // k-mers and counts across all reads
-//         kmer_count_map all_reads_kmer_counts;
-
-//         // Iterate over each read
-//         for (size_t r = 0; r < reads1.size(); ++r) {
-//             if (reads1[r].sequence.length() > k_values[k]) {
-//                 map<string, size_t> single_read_kmer_counts = count_kmers(reads1[r].sequence, k_values[k]);
-//                 each_read_kmer_counts[reads1[r].name.c_str()] = single_read_kmer_counts;
-//                 for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
-//                     all_reads_kmer_counts[iter->first] += iter->second;
-//                 }
-//             }
-//         }
-//         if (!input_reads_file2.empty()) {
-//             for (size_t r = 0; r < reads2.size(); ++r) {
-//                 if (reads2[r].sequence.length() > k_values[k]) {
-//                     map<string, size_t> single_read_kmer_counts = count_kmers(reads2[r].sequence, k_values[k]);
-//                     each_read_kmer_counts[reads2[r].name.c_str()] = single_read_kmer_counts;
-//                     for (auto iter = single_read_kmer_counts.begin(); iter != single_read_kmer_counts.end(); ++iter) {
-//                         all_reads_kmer_counts[iter->first] += iter->second;
-//                     }
-//                 }
-//             }
-//         }
-
-
-//         //
-//         // Calculate lambda from coverage, error rate, read length, and k
-//         //
-
-//         double calculated_lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
-//         // Adjust lambda for diploid calling
-//         if (is_diploid) {
-//             // each allele contributes to half of the coverage
-//             calculated_lambda = calculated_lambda / 2;
-//             manual_lambda = manual_lambda / 2;
-//         }
-
-
-//         //
-//         // Calculate lambda from flanking kmer counts if necessary
-//         //
-
-//         double estimated_lambda_mean = 0;
-//         double estimated_lambda_median = 0;
-//         if (lambda_method != "coverage") {
-//             // Iterate over each flank sequence and combine
-//             kmer_count_map combined_flanks_counts;
-//             for (size_t f = 0; f < flanks.size(); ++f) {
-//                 kmer_count_map single_flank_kmer_counts = count_kmers(flanks[f].sequence, k_values[k]);
-//                 if (f == 0) {
-//                     combined_flanks_counts = single_flank_kmer_counts;
-//                 }
-//                 else {
-//                     for (auto iter = single_flank_kmer_counts.begin(); iter != single_flank_kmer_counts.end(); ++iter) {
-//                         combined_flanks_counts[iter->first] += iter->second;
-//                     }
-//                 }
-//             }
-
-//             // Get vector of k-mers in flank sequences
-//             vector<string> flank_kmers;
-//             for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
-//                 flank_kmers.push_back(iter->first);
-//             }
-
-//             // Get counts from k-mers unique to flank sequences
-//             kmer_count_map flank_unqiue_kmer_counts;
-//             for (auto iter = flank_kmers.begin(); iter != flank_kmers.end(); ++iter) {
-//                 string flank_kmer = *iter;
-//                 auto flank_iter = union_allele_kmers.find(flank_kmer);
-//                 if (flank_iter == union_allele_kmers.end()) {
-//                     flank_unqiue_kmer_counts[flank_kmer] = combined_flanks_counts[flank_kmer];
-//                 }
-//             }
-//             if (flank_unqiue_kmer_counts.size() == 0) {
-//                 fprintf(stderr, "No k-mers are unique to the flank sequences. Select 'coverage' for lambda calculation method instead.\n");
-//                 exit(EXIT_FAILURE);
-//             }
-
-//             // Get counts for flank-unique k-mers in reads
-//             kmer_count_map all_reads_flank_kmer_counts;
-//             for (auto iter = flank_unqiue_kmer_counts.begin(); iter != flank_unqiue_kmer_counts.end(); ++iter) {
-//                 string flank_kmer = iter->first;
-//                 auto read_iter = all_reads_kmer_counts.find(flank_kmer);
-//                 size_t flank_kmer_count_in_read = read_iter != all_reads_kmer_counts.end() ? read_iter->second : 0;
-//                 all_reads_flank_kmer_counts[flank_kmer] = flank_kmer_count_in_read;
-//             }
-
-//             // Calculate estimated lambda
-//             double estimated_lambda_sum = 0;
-//             vector<double> read_flank_kmers_lambda;
-//             for (auto iter = flank_unqiue_kmer_counts.begin(); iter != flank_unqiue_kmer_counts.end(); ++iter) {
-//                 // k-mer count in reads / k-mer count in flank sequences
-//                 double est_lambda = all_reads_flank_kmer_counts[iter->first] / iter->second;
-//                 estimated_lambda_sum += est_lambda;
-//                 read_flank_kmers_lambda.push_back(est_lambda);
-//             }
-//             // Lambda mean
-//             estimated_lambda_mean = estimated_lambda_sum / read_flank_kmers_lambda.size();
-//             // Lambda median
-//             sort(read_flank_kmers_lambda.begin(), read_flank_kmers_lambda.end());
-//             size_t median_position = read_flank_kmers_lambda.size() / 2;
-//                 // value is rounded down if vector size is odd -- correct position for 0-based indexing
-//             if ((read_flank_kmers_lambda.size() % 2) == 0) {
-//                 estimated_lambda_median = (read_flank_kmers_lambda[median_position] + read_flank_kmers_lambda[median_position - 1]) / 2;
-//             }
-//             else {
-//                 estimated_lambda_median = read_flank_kmers_lambda[median_position];
-//             }
-
-//             // Adjust lambda for diploid calling
-//             if (is_diploid) {
-//                 // each allele contributes to half of the coverage
-//                 estimated_lambda_mean = estimated_lambda_mean / 2;
-//                 estimated_lambda_median = estimated_lambda_median / 2;
-//             }
-//         }
-
-
-//         //
-//         // Select lambda for scoring
-//         //
-
-//         // TODO: FIX MEAN, MEDIAN, COVERAGE LAMBDA! NOT WORKING!
-
-//         double lambda;
-//         if (manual_lambda > 0) {
-//             lambda = manual_lambda;
-//         }
-//         else if (lambda_method == "coverage") {
-//             lambda = calculated_lambda;
-
-//         }
-//         else if (lambda_method == "mean") {
-//             lambda = estimated_lambda_mean;
-
-//         }
-//         else {      // median
-//             lambda = estimated_lambda_median;
-
-//         }
-
-
-//         //
-//         // Print more handy information
-//         //
-
-//         fprintf(stderr, "---\nInformation for k = %zu\n", k_values[k]);
-//         fprintf(stderr, "Lambda calculated from sequence coverage, error, read length: %f\n", calculated_lambda);
-//         if (lambda_method == "mean" || lambda_method == "median") {
-//             fprintf(stderr, "Lambda calculated from flank kmer counts: mean: %f, median: %f\n", estimated_lambda_mean, estimated_lambda_median);
-//         }
-//         if (manual_lambda != -1 || manual_lambda != -0.5) {
-//             fprintf(stderr, "Manual lambda provided: %f\n", manual_lambda);
-//         }
-
-
-//         //
-//         // Score k-mer count profiles for each allele/genotype
-//         //
-
-//         map<string, double> all_scores;
-
-//         if (!is_diploid) {
-//             for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
-//                 string a = *iter;
-//                 all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], union_allele_kmers, lambda, lambda_error);
-//             }
-//         }
-//         else if (is_diploid) {
-//             for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
-//                 string g = *iter;
-//                 all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], union_allele_kmers, lambda, lambda_error);
-//             }
-//         }
-
-
-
-
-
 
 
         //
-        // Score kmer count profiles with binomial model
+        // Calculate lambda from coverage, error rate, read length, and k
         //
 
-        // Calculate log error (constant for all alleles and kmers)
-        double log_error = log_binomial_pmf(k_values[k], 1, sequencing_error);
+        double calculated_lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
+        // Adjust lambda for diploid calling
+        if (is_diploid) {
+            // each allele contributes to half of the coverage
+            calculated_lambda = calculated_lambda / 2;
+            manual_lambda = manual_lambda / 2;
+        }
 
-        // Calculate kmer count sum for each allele
-        map<string, size_t> all_kmer_sums;
-        for (auto allele : allele_names) {
-            for (auto iter = allele_kmer_counts[allele].begin(); iter != allele_kmer_counts[allele].end(); ++iter) {
-            all_kmer_sums[allele] += iter->second;
-            // fprintf(stderr, "kmer: %s, %zu\n", iter->first.c_str(), iter->second);
+
+        //
+        // Calculate lambda from flanking kmer counts if necessary
+        //
+
+        double estimated_lambda_mean = 0;
+        double estimated_lambda_median = 0;
+        if (lambda_method != "coverage") {
+            // Iterate over each flank sequence and combine
+            kmer_count_map combined_flanks_counts;
+            for (size_t f = 0; f < flanks.size(); ++f) {
+                kmer_count_map single_flank_kmer_counts = count_kmers(flanks[f].sequence, k_values[k]);
+                if (f == 0) {
+                    combined_flanks_counts = single_flank_kmer_counts;
+                }
+                else {
+                    for (auto iter = single_flank_kmer_counts.begin(); iter != single_flank_kmer_counts.end(); ++iter) {
+                        combined_flanks_counts[iter->first] += iter->second;
+                    }
+                }
+            }
+
+            // Get vector of k-mers in flank sequences
+            vector<string> flank_kmers;
+            for (auto iter = combined_flanks_counts.begin(); iter != combined_flanks_counts.end(); ++iter) {
+                flank_kmers.push_back(iter->first);
+            }
+
+            // Get counts from k-mers unique to flank sequences
+            kmer_count_map flank_unqiue_kmer_counts;
+            for (auto iter = flank_kmers.begin(); iter != flank_kmers.end(); ++iter) {
+                string flank_kmer = *iter;
+                auto flank_iter = allele_kmers.find(flank_kmer);
+                if (flank_iter == allele_kmers.end()) {
+                    flank_unqiue_kmer_counts[flank_kmer] = combined_flanks_counts[flank_kmer];
+                }
+            }
+            if (flank_unqiue_kmer_counts.size() == 0) {
+                fprintf(stderr, "No k-mers are unique to the flank sequences. Select 'coverage' for lambda calculation method instead.\n");
+                exit(EXIT_FAILURE);
+            }
+
+            // Get counts for flank-unique k-mers in reads
+            kmer_count_map all_reads_flank_kmer_counts;
+            for (auto iter = flank_unqiue_kmer_counts.begin(); iter != flank_unqiue_kmer_counts.end(); ++iter) {
+                string flank_kmer = iter->first;
+                auto read_iter = all_reads_kmer_counts.find(flank_kmer);
+                size_t flank_kmer_count_in_read = read_iter != all_reads_kmer_counts.end() ? read_iter->second : 0;
+                all_reads_flank_kmer_counts[flank_kmer] = flank_kmer_count_in_read;
+            }
+
+            // Calculate estimated lambda
+            double estimated_lambda_sum = 0;
+            vector<double> read_flank_kmers_lambda;
+            for (auto iter = flank_unqiue_kmer_counts.begin(); iter != flank_unqiue_kmer_counts.end(); ++iter) {
+                // k-mer count in reads / k-mer count in flank sequences
+                double est_lambda = all_reads_flank_kmer_counts[iter->first] / iter->second;
+                estimated_lambda_sum += est_lambda;
+                read_flank_kmers_lambda.push_back(est_lambda);
+            }
+            // Lambda mean
+            estimated_lambda_mean = estimated_lambda_sum / read_flank_kmers_lambda.size();
+            // Lambda median
+            sort(read_flank_kmers_lambda.begin(), read_flank_kmers_lambda.end());
+            size_t median_position = read_flank_kmers_lambda.size() / 2;
+                // value is rounded down if vector size is odd -- correct position for 0-based indexing
+            if ((read_flank_kmers_lambda.size() % 2) == 0) {
+                estimated_lambda_median = (read_flank_kmers_lambda[median_position] + read_flank_kmers_lambda[median_position - 1]) / 2;
+            }
+            else {
+                estimated_lambda_median = read_flank_kmers_lambda[median_position];
+            }
+
+            // Adjust lambda for diploid calling
+            if (is_diploid) {
+                // each allele contributes to half of the coverage
+                estimated_lambda_mean = estimated_lambda_mean / 2;
+                estimated_lambda_median = estimated_lambda_median / 2;
             }
         }
 
-        // Calculate binomial log likelihoods
-        map<string, map<string, double>> all_kmer_likelihoods;
-        for (auto allele : allele_names) {
-            map<string, double> alelle_kmer_likelihood;
-            for (auto kmer : union_allele_kmers_vector) {
-                //fprintf(stderr, "\n\n");
-                //fprintf(stderr, "\n\nalelle: %s kmer: %s counts: %zu\n\n", allele.c_str(), kmer.c_str(), allele_kmer_counts[allele].at(kmer));
-                double kmer_likelihood = binomial_kmer_likelihood(kmer, k_values[k], allele_kmers_hamming_kmers, allele_kmer_counts[allele], all_kmer_sums[allele], log_error);
-                alelle_kmer_likelihood[kmer] = kmer_likelihood;
-                //fprintf(stderr, "%s %f\n", kmer.c_str(), kmer_likelihood);
-            }
-            all_kmer_likelihoods[allele] = alelle_kmer_likelihood;
+
+        //
+        // Select lambda for scoring
+        //
+
+        // TODO: FIX MEAN, MEDIAN, COVERAGE LAMBDA! NOT WORKING!    
+
+        double lambda;
+        if (manual_lambda > 0) {
+            lambda = manual_lambda;
+        }
+        else if (lambda_method == "coverage") {
+            lambda = calculated_lambda;
+
+        }
+        else if (lambda_method == "mean") {
+            lambda = estimated_lambda_mean;
+
+        }
+        else {      // median
+            lambda = estimated_lambda_median;
+
         }
 
-        string test_kmer = "AGC";
-        double test_likelihood = binomial_kmer_likelihood(test_kmer, 3, allele_kmers_hamming_kmers, allele_kmer_counts["C"], all_kmer_sums["C"], log_error);
-        fprintf(stderr, "\ntest: %f\n\n\n", test_likelihood);
 
-// fprintf(stderr, "%", );
+        //
+        // Print more handy information
+        //
 
-
-
-
-
-
-
-//         //
-//         // Save output
-//         //
-
-//         #pragma omp critical
-//         {
-//             for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
-//                 fprintf(output, "%zu,%s,%f\n", k_values[k], iter->first.c_str(), iter->second);
-//             }
+        fprintf(stderr, "---\nInformation for k = %zu\n", k_values[k]);
+        fprintf(stderr, "Lambda calculated from sequence coverage, error, read length: %f\n", calculated_lambda);
+        if (lambda_method == "mean" || lambda_method == "median") {
+            fprintf(stderr, "Lambda calculated from flank kmer counts: mean: %f, median: %f\n", estimated_lambda_mean, estimated_lambda_median);
+        }
+        if (manual_lambda != -1 || manual_lambda != -0.5) {
+            fprintf(stderr, "Manual lambda provided: %f\n", manual_lambda);
+        }
 
 
-//         // Re-adjust manual lambda if diploid so it can be recalculated correctly for next k
-//         if (is_diploid) {
-//             manual_lambda = manual_lambda * 2;
-//         }
-//         }
+        //
+        // Score k-mer count profiles for each allele/genotype
+        //
+
+        map<string, double> all_scores;
+        if (!is_diploid) {
+            for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
+                string a = *iter;
+                all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
+            }
+        }
+        else if (is_diploid) {
+            for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
+                string g = *iter;
+                all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
+            }
+        }
+
+
+        //
+        // Save output
+        //
+
+        #pragma omp critical
+        {
+            // Create vector to store score:genotype values, sort and print top N
+            vector<pair<double, string>> all_scores_vector;
+            for (auto iter = all_scores.begin(); iter != all_scores.end(); ++iter) {
+                all_scores_vector.push_back(make_pair(iter->second, iter->first));
+            }
+
+            sort(all_scores_vector.begin(), all_scores_vector.end(), greater<pair<double, string>>());
+            int N_printed = 0;
+            for (size_t i = 0; i < all_scores_vector.size(); ++i) {
+                fprintf(output, "%zu,%s,%f\n", k_values[k], all_scores_vector[i].second.c_str(), all_scores_vector[i].first);
+                N_printed += 1;
+                if (top_N > 0 && N_printed == top_N) {
+                    break;
+                }
+            }
+
+            // Re-adjust manual lambda if diploid so it can be recalculated correctly for next k
+            if (is_diploid) {
+                manual_lambda = manual_lambda * 2;
+            }
+        }
     }
 
     fclose(output);
