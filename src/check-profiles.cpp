@@ -230,6 +230,7 @@ int checkprofilesMain(int argc, char** argv) {
             case 'd': is_diploid = true; break;
             case 'v': is_verbose = true; break;
             case 'p': is_profiles = true; break;
+            case 'o': arg >> output_name; break;
             case 't': arg >> num_threads; break;
             default: exit(EXIT_FAILURE);
         }
