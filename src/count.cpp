@@ -443,8 +443,8 @@ int countMain(int argc, char** argv) {
                 }
             }
             if (flank_unqiue_kmer_counts.size() == 0) {
-                fprintf(stderr, "No k-mers are unique to the flank sequences. Select 'coverage' for lambda calculation method instead.\n");
-                exit(EXIT_FAILURE);
+                fprintf(stderr, "No k-mers are unique to the flank sequences. Skipping this value of k. Consider selecting 'coverage' for lambda calculation method instead.\n");
+                continue;
             }
 
             // Get counts for flank-unique k-mers in reads
@@ -461,6 +461,7 @@ int countMain(int argc, char** argv) {
             vector<double> read_flank_kmers_lambda;
             for (auto iter = flank_unqiue_kmer_counts.begin(); iter != flank_unqiue_kmer_counts.end(); ++iter) {
                 // k-mer count in reads / k-mer count in flank sequences
+                // TODO: add dummy count? adjust after or keep?
                 double est_lambda = all_reads_flank_kmer_counts[iter->first] / iter->second;
                 estimated_lambda_sum += est_lambda;
                 read_flank_kmers_lambda.push_back(est_lambda);
@@ -478,6 +479,16 @@ int countMain(int argc, char** argv) {
                 estimated_lambda_median = read_flank_kmers_lambda[median_position];
             }
 
+            if ((estimated_lambda_median == 0) & (lambda_method == "median")) {
+                fprintf(stderr, "The median count for flank k-mers is 0. Skipping this value of k. Consider selecting 'mean' or 'coverage' for lambda calculation method instead.\n");
+                continue;
+            }
+            else if ((estimated_lambda_mean == 0) & (lambda_method == "mean")) {
+                fprintf(stderr, "The mean count for flank k-mers is 0. Skipping this value of k. Consider selecting 'coverage' for lambda calculation method instead.\n");
+                continue;
+            }
+            
+
             // Adjust lambda for diploid calling
             if (is_diploid) {
                 // each allele contributes to half of the coverage
@@ -490,8 +501,6 @@ int countMain(int argc, char** argv) {
         //
         // Select lambda for scoring
         //
-
-        // TODO: FIX MEAN, MEDIAN, COVERAGE LAMBDA! NOT WORKING!    
 
         double lambda;
         if (manual_lambda > 0) {
