@@ -117,8 +117,8 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -M       manual lambda entry (overrides lambda method selection)\n"
 "       -f       multi-fasta file of the two flanking sequences surrounding region of interest (required when method is 'mean' or 'median')\n"
 "       -N       print only the top N scores per k (default: print all)\n"
-"       -s       separator for output file (default: tab)"
 "       -o       output file name (default: results-counts.csv)\n"
+"       -s       separator for output file (default: tab)"
 "       -t       number of threads (default: 1)\n";
 
 
@@ -153,11 +153,11 @@ int countMain(int argc, char** argv) {
     double manual_lambda = -1;       // temporary for troubleshooting
     string input_flanks_file;
     int top_N = -1;
-    string sep = "tab";
     string output_name = "count-results.csv";
+    string sep = "tab";
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:dk:K:i:m:l:e:c:L:M:f:N:o:t:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:dk:K:i:m:l:e:c:L:M:f:N:o:s:t:", NULL, NULL)) != -1;) {
         istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -176,6 +176,7 @@ int countMain(int argc, char** argv) {
             case 'f': arg >> input_flanks_file; break;
             case 'N': arg >> top_N; break;
             case 'o': arg >> output_name; break;
+            case 's': arg >> sep; break;
             case 't': arg >> num_threads; break;
             default: exit(EXIT_FAILURE);
         }
