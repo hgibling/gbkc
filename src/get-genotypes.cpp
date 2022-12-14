@@ -32,7 +32,7 @@ static const char *GET_GENOTYPES_USAGE_MESSAGE =
 "Usage: gbkc get-genotypes -a <file>\n\n"
 "Commands:\n"
 "       -a       multi-fasta file of alleles/haplotypes of interest\n"
-"       -s       single-character separator (default: ,)\n";
+"       -s       single-character separator (default: /)\n";
 
 
 //
@@ -52,7 +52,7 @@ int getgenotypesMain(int argc, char** argv) {
     //
 
     string input_alleles_file;
-    char separator = ',';
+    char separator = '/';
 
     for (char c; (c = getopt_long(argc, argv, "a:s:", NULL, NULL)) != -1;) {
         istringstream arg(optarg != NULL ? optarg : "");
@@ -69,10 +69,10 @@ int getgenotypesMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-//    if (separator == '') {
-//        fprintf(stderr, "Please use some sort of separator for the two alleles that comprise the genotype\n");
-//        exit(EXIT_FAILURE);
-//    }
+    if (separator == '') {
+        fprintf(stderr, "Please use some sort of separator for the two alleles that comprise the genotype\n");
+        exit(EXIT_FAILURE);
+    }
 
 
     //
