@@ -100,6 +100,53 @@ double score_profile(const kmer_count_map& read_map, const kmer_count_map& allel
     return score;
 }
 
+// Calculate Pearson correlation coefficient
+double calculate_pearson(const vector<size_t>& x_vector, const vector<size_t>& y_vector) {
+    double x_sum = 0;
+    double y_sum = 0;
+    for (size_t i = 0; i < x_vector.size(); ++i) {
+        x_sum += x_vector[i];
+        y_sum += y_vector[i];
+    }
+
+    double x_mean = x_sum / x_vector.size();
+    double y_mean = y_sum / y_vector.size();
+    double sum_minus_mean_multiplied = 0;
+    double sum_sq_minus_mean_x = 0;
+    double sum_sq_minus_mean_y = 0;
+
+    for (size_t i = 0; i < x_vector.size(); ++i) {
+        double x_minus_mean = x_vector[i] - x_mean;
+        double y_minus_mean = y_vector[i] - y_mean;
+        sum_minus_mean_multiplied += x_minus_mean * y_minus_mean;
+        sum_sq_minus_mean_x += x_minus_mean * x_minus_mean;
+        sum_sq_minus_mean_y += y_minus_mean * y_minus_mean;
+    }
+
+    double r = sum_minus_mean_multiplied / (sqrt(sum_sq_minus_mean_x * sum_sq_minus_mean_y));
+    return(r);
+}
+
+// Score with Pearson correlation coefficient
+double score_pearson(const kmer_count_map& read_map, const kmer_count_map& allele_map, const unordered_set<string>& allele_union_kmers) {
+    vector<size_t> read_count_vector;
+    vector<size_t> allele_count_vector;
+
+    for (auto iter = allele_union_kmers.begin(); iter != allele_union_kmers.end(); ++iter) {
+        string kmer = *iter;
+        auto read_iter = read_map.find(kmer);
+        size_t kmer_count_in_read = read_iter != read_map.end() ? read_iter->second : 0;
+        read_count_vector.push_back(kmer_count_in_read);
+        auto allele_iter = allele_map.find(kmer);
+        size_t kmer_count_in_allele = allele_iter != allele_map.end() ? allele_iter->second : 0;
+        allele_count_vector.push_back(kmer_count_in_allele);
+    }
+
+    double pearson = calculate_pearson(read_count_vector, allele_count_vector);
+    return(pearson);
+}
+
+
 
 //
 // Help message
@@ -185,6 +232,7 @@ int countMain(int argc, char** argv) {
             default: exit(EXIT_FAILURE);
         }
     }
+
 
 
     // Check for parameter arguments
@@ -558,6 +606,13 @@ int countMain(int argc, char** argv) {
                 all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
             }
         }
+
+
+        // Pearson scoring
+        // for (auto iter = allele_names.begin(); iter != allele_names.end(); ++iter) {
+        //          string a = *iter;
+        //          all_scores[a] = score_pearson(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers);
+        //     }
 
 
         //
