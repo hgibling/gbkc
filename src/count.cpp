@@ -118,7 +118,7 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -f       multi-fasta file of the two flanking sequences surrounding region of interest (required when method is 'mean' or 'median')\n"
 "       -N       print only the top N scores per k (default: print all)\n"
 "       -s       separator for output file (default: tab)"
-"       -o       output file name (default: results.csv)\n"
+"       -o       output file name (default: results-counts.csv)\n"
 "       -t       number of threads (default: 1)\n";
 
 
@@ -573,7 +573,7 @@ int countMain(int argc, char** argv) {
                     fprintf(output, "%zu\t%s\t%f\n", k_values[k], all_scores_vector[i].second.c_str(), all_scores_vector[i].first);
                 } 
                 else {
-                    fprintf(output, "%zu%s%s%s%f\n", k_values[k], sep, all_scores_vector[i].second.c_str(), sep, all_scores_vector[i].first);
+                    fprintf(output, "%zu%s%s%s%f\n", k_values[k], sep.c_str(), all_scores_vector[i].second.c_str(), sep.c_str(), all_scores_vector[i].first);
                 }
                 N_printed += 1;
                 if (top_N > 0 && N_printed == top_N) {
