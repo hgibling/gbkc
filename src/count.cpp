@@ -109,14 +109,15 @@ static const char *COUNT_USAGE_MESSAGE =
 "       -k       lower value of k-mer to use (default: 11)\n"
 "       -K       upper value of k-mer to use\n"
 "       -i       increment size between k-mer values (default: 4)\n"
-"       -l       read length\n"
-"       -e       sequencing error rate\n"
-"       -c       sequencing coverage\n"
-"       -L       error rate for lambda (default: 1)\n"
 "       -m       method for calculating lambda (from coverage and error rate, or from flank k-mer counts; one of: coverage, mean, median)\n"
+"       -l       read length (required when method is 'coverage')\n"
+"       -e       sequencing error rate (required when method is 'coverage')\n"
+"       -c       sequencing coverage (required when method is 'coverage')\n"
+"       -L       error rate for lambda (default: 1)\n"
 "       -M       manual lambda entry (overrides lambda method selection)\n"
-"       -f       multi-fasta file of the two flanking sequences surrounding region of interest\n"
-"       -N       print only the top N scores per k-mer (default: print all)\n"
+"       -f       multi-fasta file of the two flanking sequences surrounding region of interest (required when method is 'mean' or 'median')\n"
+"       -N       print only the top N scores per k (default: print all)\n"
+"       -s       separator for output file (default: tab)"
 "       -o       output file name (default: results.csv)\n"
 "       -t       number of threads (default: 1)\n";
 
@@ -144,18 +145,19 @@ int countMain(int argc, char** argv) {
     size_t lower_k = 11;
     size_t upper_k = 0;
     size_t increment_k = 4;
+    string lambda_method;
     double read_length = -1;
     double sequencing_error = -1;
     double coverage = -1;
     double lambda_error = 1;
-    string lambda_method;
     double manual_lambda = -1;       // temporary for troubleshooting
     string input_flanks_file;
     int top_N = -1;
+    string sep = "tab";
     string output_name = "count-results.csv";
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:dk:K:i:l:e:c:L:m:M:f:N:o:t:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:dk:K:i:m:l:e:c:L:M:f:N:o:t:", NULL, NULL)) != -1;) {
         istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -165,11 +167,11 @@ int countMain(int argc, char** argv) {
             case 'k': arg >> lower_k; break;
             case 'K': arg >> upper_k; break;
             case 'i': arg >> increment_k; break;
+            case 'm': arg >> lambda_method; break;
             case 'l': arg >> read_length; break;        // TODO: calculate from input reads files
             case 'e': arg >> sequencing_error; break;
             case 'c': arg >> coverage; break;
             case 'L': arg >> lambda_error; break;
-            case 'm': arg >> lambda_method; break;
             case 'M': arg >> manual_lambda; break;     // temporary for troubleshooting
             case 'f': arg >> input_flanks_file; break;
             case 'N': arg >> top_N; break;
@@ -191,11 +193,6 @@ int countMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    if (read_length <= 0) {
-        fprintf(stderr, "Read length must be greater than 0. Check parameters.\n");
-        exit(EXIT_FAILURE);
-    }
-
     if (lower_k == 0 || lower_k > read_length || upper_k == 0 || upper_k > read_length) {
         fprintf(stderr, "Value of k must be non-zero and less than the read length. Check parameters.\n");
         exit(EXIT_FAILURE);
@@ -206,14 +203,21 @@ int countMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    if (sequencing_error < 0 || sequencing_error > 1) {
-        fprintf(stderr, "Sequencing error rate must be between 0 and 1. Check parameters.\n");
-        exit(EXIT_FAILURE);
-    }
+    if (lambda_method == "coverage" ) {
+        if (read_length <= 0) {
+            fprintf(stderr, "Read length must be greater than 0. Check parameters.\n");
+            exit(EXIT_FAILURE);
+        }
 
-    if (coverage <= 0) {
-        fprintf(stderr, "Coverage must be greater than 0. Check parameters.\n");
-        exit(EXIT_FAILURE);
+        if (sequencing_error < 0 || sequencing_error > 1) {
+            fprintf(stderr, "Sequencing error rate must be between 0 and 1. Check parameters.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if (coverage <= 0) {
+            fprintf(stderr, "Coverage must be greater than 0. Check parameters.\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
     if (lambda_method != "coverage" && lambda_method != "mean" && lambda_method != "median") {
@@ -221,8 +225,8 @@ int countMain(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    if (input_flanks_file.empty()) {
-        fprintf(stderr, "No file for flank sequences. Check parameters.\n");
+    if (lambda_method != "coverage" && input_flanks_file.empty()) {
+        fprintf(stderr, "No file for flank sequences. Required when method is 'mean' or 'median'. Check parameters.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -254,8 +258,11 @@ int countMain(int argc, char** argv) {
         reads2 = read_sequences_from_file(input_reads_file2);
     }
 
-    // Get flank sequences
-    vector<sequence_record> flanks = read_sequences_from_file(input_flanks_file);
+    // Get flank sequences if needed
+    vector<sequence_record> flanks;
+    if (lambda_method != "coverage") {
+        flanks = read_sequences_from_file(input_flanks_file);
+    }
 
 
     //
@@ -266,24 +273,28 @@ int countMain(int argc, char** argv) {
     fprintf(stderr, "Input reads: %s", input_reads_file1.c_str());
     fprintf(stderr, " %s", input_reads_file2.c_str());
     fprintf(stderr, "\nInput alleles: %s\n", input_alleles_file.c_str());
-    fprintf(stderr, "Input flank sequences: %s\n", input_flanks_file.c_str());
     fprintf(stderr, "Number of alleles: %zu\n", allele_names.size());
+    fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
     if (!is_diploid) {
         fprintf(stderr, "Haploid profiles used\n");
     }
-    else if (is_diploid) {
+    else {
         fprintf(stderr, "Diploid profiles used\n");
     }
-    fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%\n", coverage, sequencing_error);
-    fprintf(stderr, "Input lambda error: %f\n", lambda_error);
-    fprintf(stderr, "Lower k value: %zu, upper k value: %zu, k increment: %zu\n", lower_k, upper_k, increment_k);
     if (manual_lambda != -1) {
         fprintf(stderr, "Manual lambda value selected: %f\n", manual_lambda);
     }
     else {
         fprintf(stderr, "Selected lambda method: %s\n", lambda_method.c_str());
     }
-
+    if (lambda_method == "coverage") {
+        fprintf(stderr, "Input coverage: %f X, sequencing error: %f %%, read length: %f\n", coverage, sequencing_error, read_length);
+    }
+    else {
+        fprintf(stderr, "Input flank sequences: %s\n", input_flanks_file.c_str());
+    }
+    fprintf(stderr, "Input lambda error: %f\n", lambda_error);
+    
 
     //
     // Determine all possible genotypes if needed
@@ -394,25 +405,26 @@ int countMain(int argc, char** argv) {
 
 
         //
-        // Calculate lambda from coverage, error rate, read length, and k
+        // Calculate lambda 
         //
 
-        double calculated_lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
-        // Adjust lambda for diploid calling
-        if (is_diploid) {
-            // each allele contributes to half of the coverage
-            calculated_lambda = calculated_lambda / 2;
-            manual_lambda = manual_lambda / 2;
-        }
-
-
-        //
-        // Calculate lambda from flanking kmer counts if necessary
-        //
-
+        double calculated_lambda = 0;
         double estimated_lambda_mean = 0;
         double estimated_lambda_median = 0;
-        if (lambda_method != "coverage") {
+        
+        // From coverage, error rate, read length, and k
+        if (lambda_method == "coverage") {
+            double calculated_lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
+            // Adjust lambda for diploid calling
+            if (is_diploid) {
+                // each allele contributes to half of the coverage
+                calculated_lambda = calculated_lambda / 2;
+                manual_lambda = manual_lambda / 2;
+            }
+        }
+
+        // From flanking kmer counts
+        else {
             // Iterate over each flank sequence and combine
             kmer_count_map combined_flanks_counts;
             for (size_t f = 0; f < flanks.size(); ++f) {
@@ -443,7 +455,7 @@ int countMain(int argc, char** argv) {
                 }
             }
             if (flank_unqiue_kmer_counts.size() == 0) {
-                fprintf(stderr, "No k-mers are unique to the flank sequences. Skipping this value of k. Consider selecting 'coverage' for lambda calculation method instead.\n");
+                fprintf(stderr, "No %zu-mers are unique to the flank sequences. Skipping this value of k. Consider selecting 'coverage' for lambda calculation method instead.\n", k);
                 continue;
             }
 
@@ -480,14 +492,13 @@ int countMain(int argc, char** argv) {
             }
 
             if ((estimated_lambda_median == 0) & (lambda_method == "median")) {
-                fprintf(stderr, "The median count for flank k-mers is 0. Skipping this value of k. Consider selecting 'mean' or 'coverage' for lambda calculation method instead.\n");
+                fprintf(stderr, "The median count for flank %zu-mers is 0. Skipping this value of k. Consider selecting 'mean' or 'coverage' for lambda calculation method instead.\n", k);
                 continue;
             }
             else if ((estimated_lambda_mean == 0) & (lambda_method == "mean")) {
-                fprintf(stderr, "The mean count for flank k-mers is 0. Skipping this value of k. Consider selecting 'coverage' for lambda calculation method instead.\n");
+                fprintf(stderr, "The mean count for flank %zu-mers is 0. Skipping this value of k. Consider selecting 'coverage' for lambda calculation method instead.\n", k);
                 continue;
-            }
-            
+            }   
 
             // Adjust lambda for diploid calling
             if (is_diploid) {
@@ -508,15 +519,12 @@ int countMain(int argc, char** argv) {
         }
         else if (lambda_method == "coverage") {
             lambda = calculated_lambda;
-
         }
         else if (lambda_method == "mean") {
             lambda = estimated_lambda_mean;
-
         }
         else {      // median
             lambda = estimated_lambda_median;
-
         }
 
 
@@ -524,14 +532,7 @@ int countMain(int argc, char** argv) {
         // Print more handy information
         //
 
-        fprintf(stderr, "---\nInformation for k = %zu\n", k_values[k]);
-        fprintf(stderr, "Lambda calculated from sequence coverage, error, read length: %f\n", calculated_lambda);
-        if (lambda_method == "mean" || lambda_method == "median") {
-            fprintf(stderr, "Lambda calculated from flank kmer counts: mean: %f, median: %f\n", estimated_lambda_mean, estimated_lambda_median);
-        }
-        if (manual_lambda != -1 || manual_lambda != -0.5) {
-            fprintf(stderr, "Manual lambda provided: %f\n", manual_lambda);
-        }
+        fprintf(stderr, "---\nFor k = %zu, lambda = %f\n", k_values[k], lambda);
 
 
         //
@@ -545,7 +546,7 @@ int countMain(int argc, char** argv) {
                 all_scores[a] = score_profile(all_reads_kmer_counts, allele_kmer_counts[a], allele_kmers, lambda, lambda_error);
             }
         }
-        else if (is_diploid) {
+        else {
             for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
                 string g = *iter;
                 all_scores[g] = score_profile(all_reads_kmer_counts, genotype_kmer_counts[g], allele_kmers, lambda, lambda_error);
@@ -568,7 +569,12 @@ int countMain(int argc, char** argv) {
             sort(all_scores_vector.begin(), all_scores_vector.end(), greater<pair<double, string>>());
             int N_printed = 0;
             for (size_t i = 0; i < all_scores_vector.size(); ++i) {
-                fprintf(output, "%zu,%s,%f\n", k_values[k], all_scores_vector[i].second.c_str(), all_scores_vector[i].first);
+                if (sep == "tab") {
+                    fprintf(output, "%zu\t%s\t%f\n", k_values[k], all_scores_vector[i].second.c_str(), all_scores_vector[i].first);
+                } 
+                else {
+                    fprintf(output, "%zu%s%s%s%f\n", k_values[k], sep, all_scores_vector[i].second.c_str(), sep, all_scores_vector[i].first);
+                }
                 N_printed += 1;
                 if (top_N > 0 && N_printed == top_N) {
                     break;
