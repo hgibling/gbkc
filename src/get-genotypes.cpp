@@ -32,7 +32,8 @@ static const char *GET_GENOTYPES_USAGE_MESSAGE =
 "Usage: gbkc get-genotypes -a <file>\n\n"
 "Commands:\n"
 "       -a       multi-fasta file of alleles/haplotypes of interest\n"
-"       -s       separator between alleles of a genotype (default: /)\n";
+"       -s       separator between alleles of a genotype (default: /)\n"
+"       -o       output file name (default: results-get-genotypes.txt)\n";
 
 
 //
@@ -53,12 +54,14 @@ int getgenotypesMain(int argc, char** argv) {
 
     string input_alleles_file;
     string separator = "/";
+    string output_name = "results-get-genotypes.txt";
 
-    for (char c; (c = getopt_long(argc, argv, "a:s:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:s:o:", NULL, NULL)) != -1;) {
         istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
             case 's': arg >> separator; break;
+            case 'o': arg >> output_name; break;
             default: exit(EXIT_FAILURE);
         }
     }
@@ -100,9 +103,14 @@ int getgenotypesMain(int argc, char** argv) {
     }
 
     // Print list of all possible allele combinations/genotypes
+    FILE * output;
+    output = fopen(output_name.c_str(), "w");
+
     for (auto iter = genotype_names.begin(); iter != genotype_names.end(); ++iter) {
-        printf("%s\n", iter->c_str());
+        fprintf(output, "%s\n", iter->c_str());
     }
+
+    fclose(output);
 
 
     //
