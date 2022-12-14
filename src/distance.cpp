@@ -102,7 +102,7 @@ double score_kmer_distances(const pair<string, string>& read_kmer_pair, const km
     vector<double> kmer_pair_scores;
     auto check1 = allele_distances.find(read_kmer_pair.first);
     auto check2 = allele_distances.find(read_kmer_pair.second);
-    // If either kmer is not present in the list of allele kmer distances, use the penalty score instead
+    // If either k-mer is not present in the list of allele k-mer distances, use the penalty score instead
     if ((check1 == allele_distances.end() || check2 == allele_distances.end())) {
         score = log_normal_pdf(penalty, fragment_length, fragment_stdev);
     }
@@ -112,7 +112,7 @@ double score_kmer_distances(const pair<string, string>& read_kmer_pair, const km
         for (auto iter1 = range1.first; iter1 != range1.second; ++iter1) {
             for (auto iter2 = range2.first; iter2 != range2.second; ++iter2) {
                 size_t distance = outer_distance(iter1->second, iter2->second, k, penalty);
-		kmer_pair_scores.push_back(log_normal_pdf(distance, fragment_length, fragment_stdev));
+                kmer_pair_scores.push_back(log_normal_pdf(distance, fragment_length, fragment_stdev));
            }
         }
 
@@ -183,17 +183,18 @@ double genotype_score_read_kmer_pairs(const kmer_position_map& allele_positions1
         auto range = read_pairs.equal_range(*iter1);
         vector<double> compare_scores1;
         for (auto iter2 = range.first; iter2 != range.second; ++iter2) {
-		compare_scores1.push_back(score_kmer_distances(iter2->second, allele_positions1, fragment_length, fragment_stdev, k, penalty, method));
+        compare_scores1.push_back(score_kmer_distances(iter2->second, allele_positions1, fragment_length, fragment_stdev, k, penalty, method));
         }
-	double max_score1 = *max_element(compare_scores1.begin(), compare_scores1.end());
+        double max_score1 = *max_element(compare_scores1.begin(), compare_scores1.end());
 
         vector<double> compare_scores2;
         for (auto iter2 = range.first; iter2 != range.second; ++iter2) {
             compare_scores2.push_back(score_kmer_distances(iter2->second, allele_positions2, fragment_length, fragment_stdev, k, penalty, method));
         }
         double max_score2 = *max_element(compare_scores2.begin(), compare_scores2.end());
-	double average_max_scores = log((exp(max_score1) + exp(max_score2))/2);
-	score += average_max_scores;
+
+        double average_max_scores = log((exp(max_score1) + exp(max_score2))/2);
+        score += average_max_scores;
     }
     return score;
 }
@@ -220,9 +221,10 @@ static const char *DISTANCE_USAGE_MESSAGE =
 "       -f       mean fragment length\n"
 "       -s       standard deviation of fragment length\n"
 "       -p       penalty fragment length when k-mer pairs aren't observed in an allele (default: 10)\n"
-"       -m       method for summarizing scores when kmer pairs occur more than once in an allele\n"
+"       -m       method for summarizing scores when k-mer pairs occur more than once in an allele\n"
 "       -N       print only the top N scores per k-mer (default: print all)\n"
-"       -o       output file name (default: results.csv)\n"
+"       -o       output file name (default: results-distances.csv)\n"
+"       -S       separator for output file (default: tab)"
 "       -t       number of threads (default: 1)\n";
 
 
@@ -257,10 +259,11 @@ int distanceMain(int argc, char** argv) {
     size_t input_penalty = 10;
     string method;
     int top_N = -1;
-    string output_name = "distance-results.csv";
+    string output_name = "results-distances.csv";
+    string sep = "tab";
     size_t num_threads = 1;
 
-    for (char c; (c = getopt_long(argc, argv, "a:1:2:dk:K:i:l:e:c:f:s:p:m:N:o:t:", NULL, NULL)) != -1;) {
+    for (char c; (c = getopt_long(argc, argv, "a:1:2:dk:K:i:l:e:c:f:s:p:m:N:o:S:t:", NULL, NULL)) != -1;) {
         istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'a': arg >> input_alleles_file; break;
@@ -279,6 +282,7 @@ int distanceMain(int argc, char** argv) {
             case 'm': arg >> method; break;
             case 'N': arg >> top_N; break;
             case 'o': arg >> output_name; break;
+            case 'S': arg >> sep; break;
             case 't': arg >> num_threads; break;
             default: exit(EXIT_FAILURE);
         }
@@ -448,11 +452,11 @@ int distanceMain(int argc, char** argv) {
             pair<string, string> first_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, k_values[k], 0);
             pair<string, string> second_rc = outer_kmers(reads1[r].sequence, reads2[r].sequence, k_values[k], 1);
 
-	    // Only keep k-mers without Ns
-	    if ((first_rc.first.find('N') == string::npos) & (first_rc.second.find('N') == string::npos)) {
-	            read_pairs.insert({reads1[r].name, first_rc});
-	            read_pairs.insert({reads1[r].name, second_rc});
-	    }
+            // Only keep k-mers without Ns
+            if ((first_rc.first.find('N') == string::npos) & (first_rc.second.find('N') == string::npos)) {
+                    read_pairs.insert({reads1[r].name, first_rc});
+                    read_pairs.insert({reads1[r].name, second_rc});
+            }
         }
 
 
@@ -492,7 +496,12 @@ int distanceMain(int argc, char** argv) {
             int N_printed = 0;
 
             for (size_t i = 0; i < all_scores_vector.size(); ++i) {
-                fprintf(output, "%zu,%s,%f\n", k_values[k], all_scores_vector[i].second.c_str(), all_scores_vector[i].first);
+                if (sep == "tab") {
+                    fprintf(output, "%zu\t%s\t%f\n", k_values[k], all_scores_vector[i].second.c_str(), all_scores_vector[i].first);
+                }
+                else {
+                    fprintf(output, "%zu%s%s%s%f\n", k_values[k], sep.c_str(), all_scores_vector[i].second.c_str(), sep.c_str(), all_scores_vector[i].first);
+                }
                 N_printed += 1;
                 if (top_N > 0 && N_printed == top_N) {
                     break;
