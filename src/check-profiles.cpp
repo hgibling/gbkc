@@ -45,7 +45,7 @@ char complement(const char nucleotide)
         case 'C': return 'G';
         case 'G': return 'C';
         case 'T': return 'A';
-	    case 'N': return 'N';
+        case 'N': return 'N';
         default:
             fprintf(stderr, "Error: unrecognized nucleotide %c\n", nucleotide);
             exit(EXIT_FAILURE);
