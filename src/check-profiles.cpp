@@ -45,7 +45,7 @@ char complement(const char nucleotide)
         case 'C': return 'G';
         case 'G': return 'C';
         case 'T': return 'A';
-	case 'N': return 'N';
+	    case 'N': return 'N';
         default:
             fprintf(stderr, "Error: unrecognized nucleotide %c\n", nucleotide);
             exit(EXIT_FAILURE);
@@ -189,7 +189,7 @@ static const char *CHECK_PROFILES_USAGE_MESSAGE =
 "       -d       check diploid genotypes (if flag is not used, haploid check is performed)\n"
 "       -v       verbose printout of comparisons (differences per k-mer) when profiles are not identical \n"
 "       -p       print individual k-mer count profiles (overrides -v)\n"
-"       -o       output file name (default: check-profiles-results.txt)\n"
+"       -o       output file name (default: results-check-profiles.txt)\n"
 "       -t       number of threads (default: 1)\n";
 
 
@@ -216,7 +216,7 @@ int checkprofilesMain(int argc, char** argv) {
     bool is_diploid = false;
     bool is_verbose = false;
     bool is_profiles = false;
-    string output_name = "check-profiles-results.txt";
+    string output_name = "results-check-profiles.txt";
     size_t num_threads = 1;
 
 
