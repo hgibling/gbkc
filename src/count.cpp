@@ -415,7 +415,7 @@ int countMain(int argc, char** argv) {
         
         // From coverage, error rate, read length, and k
         if (lambda_method == "coverage") {
-            double calculated_lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
+            calculated_lambda = calculate_lambda(read_length, k_values[k], coverage, sequencing_error);
             // Adjust lambda for diploid calling
             if (is_diploid) {
                 // each allele contributes to half of the coverage
@@ -499,8 +499,8 @@ int countMain(int argc, char** argv) {
             else if ((estimated_lambda_mean == 0) & (lambda_method == "mean")) {
                 fprintf(stderr, "The mean count for flank %zu-mers is 0. Skipping this value of k. Consider selecting 'coverage' for lambda calculation method instead.\n", k);
                 continue;
-            }   
-
+            }
+            
             // Adjust lambda for diploid calling
             if (is_diploid) {
                 // each allele contributes to half of the coverage
